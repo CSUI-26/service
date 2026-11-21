@@ -5,7 +5,7 @@
 set -eu -o pipefail
 
 project_dir=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)
-compose=(docker compose --project-directory "$project_dir" --env-file "$project_dir/.env" -f "$project_dir/compose.yml" -f "$project_dir/compose.dev.yml")
+compose=(docker compose --project-directory "$project_dir" --env-file "$project_dir/.env" -f "$project_dir/docker-compose.yml" -f "$project_dir/compose.dev.yml")
 
 admin_access_key=$(sed -n 's/^SEAWEED_S3_ADMIN_ACCESS_KEY=//p' "$project_dir/.env" | head -n 1)
 admin_secret_key=$(sed -n 's/^SEAWEED_S3_ADMIN_SECRET_KEY="\(.*\)"$/\1/p' "$project_dir/.env" | head -n 1)

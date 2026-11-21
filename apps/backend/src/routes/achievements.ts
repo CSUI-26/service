@@ -5,7 +5,7 @@ import { AchievementCreateSchema, AchievementUpdateSchema } from '../schemas/ind
 import { parsePaging } from './courses.js';
 
 export async function achievementRoutes(fastify: FastifyInstance) {
-  fastify.get('/api/v1/achievements', async (req) => {
+  fastify.get('/api/v1/achievements', async (req, reply) => {
     const query = req.query as {
       format?: string;
       search?: string;
@@ -14,6 +14,8 @@ export async function achievementRoutes(fastify: FastifyInstance) {
       page?: string;
       limit?: string;
     };
+
+    reply.header('Cache-Control', 'public, max-age=60, stale-while-revalidate=300');
 
     if (query.format === 'grouped') {
       return { data: await repo.getGroupedAchievements() };
@@ -47,6 +49,7 @@ export async function achievementRoutes(fastify: FastifyInstance) {
     const { id } = req.params as { id: string };
     const achievement = await repo.getAchievementById(id);
     if (!achievement) return reply.code(404).send({ error: 'Achievement not found' });
+    reply.header('Cache-Control', 'public, max-age=60, stale-while-revalidate=300');
     return { data: achievement };
   });
 

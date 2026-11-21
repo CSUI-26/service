@@ -46,13 +46,13 @@ fi
 docker compose \
     --project-directory "$project_dir" \
     "${env_file[@]}" \
-    -f "$project_dir/compose.yml" \
+    -f "$project_dir/docker-compose.yml" \
     config --quiet
 
 docker compose \
     --project-directory "$project_dir" \
     "${env_file[@]}" \
-    -f "$project_dir/compose.yml" \
+    -f "$project_dir/docker-compose.yml" \
     -f "$project_dir/compose.dev.yml" \
     config --quiet
 

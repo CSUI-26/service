@@ -10,7 +10,9 @@ import { MemberCreateSchema, MemberUpdateSchema } from '../schemas/index.js';
 import { parsePaging } from './courses.js';
 
 export async function memberRoutes(fastify: FastifyInstance) {
-  fastify.get('/api/v1/members', { preHandler: [optionalAuth()] }, async (req) => {
+  fastify.get('/api/v1/members', { preHandler: [optionalAuth()] }, async (req, reply) => {
+    reply.header('Cache-Control', 'private, no-store');
+    reply.header('Vary', 'Cookie, Authorization');
     const query = req.query as {
       search?: string;
       major?: string;
@@ -40,6 +42,8 @@ export async function memberRoutes(fastify: FastifyInstance) {
   });
 
   fastify.get('/api/v1/members/:npm', { preHandler: [optionalAuth()] }, async (req, reply) => {
+    reply.header('Cache-Control', 'private, no-store');
+    reply.header('Vary', 'Cookie, Authorization');
     const { npm } = req.params as { npm: string };
     const member = await repo.getMemberByNpm(npm);
     if (!member) return reply.code(404).send({ error: 'Member not found' });

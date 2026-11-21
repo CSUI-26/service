@@ -1,10 +1,15 @@
+import { randomUUID } from 'node:crypto';
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import multipart from '@fastify/multipart';
 import { adminOnly, blockUnauthorized, requireWhitelisted } from '../middleware/auth.js';
 import { parseImageHeader } from '../lib/image.js';
 import { getObject, putObject } from '../services/storage.js';
 
-async function handleImageUpload(req: FastifyRequest, reply: FastifyReply, keyPrefix: string) {
+async function handleImageUpload(
+  req: FastifyRequest,
+  reply: FastifyReply,
+  buildKey: (ext: string) => string,
+) {
   if (!req.isMultipart()) {
     return reply.code(400).send({ error: 'Multipart form-data required' });
   }
@@ -15,7 +20,7 @@ async function handleImageUpload(req: FastifyRequest, reply: FastifyReply, keyPr
 
   const buf = await file.toBuffer();
   const meta = parseImageHeader(buf);
-  const key = `${keyPrefix}-${Date.now()}.${meta.ext}`;
+  const key = buildKey(meta.ext);
   const rawOidcHeader = req.headers['x-vercel-oidc-token'];
   const oidcToken = Array.isArray(rawOidcHeader) ? rawOidcHeader[0] : rawOidcHeader;
   const stored = await putObject(key, buf, meta.mime, { oidcToken });
@@ -55,7 +60,7 @@ export async function uploadRoutes(fastify: FastifyInstance) {
         return reply.code(400).send({ error: 'Valid 10-digit NPM required' });
       }
 
-      return handleImageUpload(req, reply, `members/${targetNpm}`);
+      return handleImageUpload(req, reply, (ext) => `members/${randomUUID()}.${ext}`);
     },
   );
 
@@ -70,7 +75,7 @@ export async function uploadRoutes(fastify: FastifyInstance) {
         .replace(/[^a-z0-9_-]+/g, '-')
         .replace(/^-+|-+$/g, '') || 'banner';
 
-      return handleImageUpload(req, reply, `achievements/${safeId}`);
+      return handleImageUpload(req, reply, (ext) => `achievements/${safeId}-${Date.now()}.${ext}`);
     },
   );
 

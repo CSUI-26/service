@@ -1,5 +1,5 @@
 # Local-development override. Start with:
-# docker compose --env-file .env -f compose.yml -f compose.dev.yml up -d
+# docker compose --env-file .env -f docker-compose.yml -f compose.dev.yml up -d --build
 
 services:
   postgres:
@@ -48,5 +48,8 @@ services:
       - "127.0.0.1:${ZENITH_FRONTEND_PORT:-3000}:80"
 
   gateway:
-    ports:
+    ports: !override
       - "${ZENITH_GATEWAY_PORT:-80}:80"
+
+  watchtower:
+    profiles: ["prod-only"]

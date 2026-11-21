@@ -172,7 +172,7 @@ describe('Achievements & Upload API integration', () => {
       payload: validUpload.payload,
     });
     expect(selfRes.statusCode).toBe(200);
-    expect(selfRes.json().data.key).toMatch(new RegExp(`^members/${memberOne.npm}-\\d+\\.webp$`));
+    expect(selfRes.json().data.key).toMatch(/^members\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.webp$/i);
     expect(selfRes.json().data.width).toBe(1);
 
     if (memberTwo.npm !== memberOne.npm) {

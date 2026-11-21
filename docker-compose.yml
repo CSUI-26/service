@@ -4,6 +4,7 @@ services:
   postgres:
     image: postgres:17.7-bookworm@sha256:86e0b703649d7a792bd9243ee28afc9d8f7c6b2b5638077c9d6882d4d472bbfd
     restart: unless-stopped
+    mem_limit: 384m
     environment:
       POSTGRES_USER: ${POSTGRES_SUPERUSER}
       POSTGRES_PASSWORD: ${POSTGRES_SUPERUSER_PASSWORD}
@@ -26,10 +27,10 @@ services:
       - ./config/pg_hba.conf:/var/lib/postgresql/config/pg_hba.conf:ro
     networks:
       private: {}
-    shm_size: 256m
+    shm_size: 128m
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U \"$$POSTGRES_USER\" -d \"$$POSTGRES_DB\""]
-      interval: 10s
+      interval: 15s
       timeout: 5s
       retries: 6
       start_period: 30s
@@ -42,6 +43,7 @@ services:
   seaweedfs:
     image: chrislusf/seaweedfs:latest@sha256:4b42c212543a0acd4c0e675215ecdcaf62a186ef98def76c7e12701871222d15
     restart: unless-stopped
+    mem_limit: 384m
     entrypoint:
       - /bin/sh
       - -ec
@@ -118,8 +120,11 @@ services:
       context: .
       dockerfile: apps/backend/Dockerfile
       target: production
-    image: zenith-backend:latest
+    image: ${BACKEND_IMAGE:-ghcr.io/vickyibr/csui26-backend:latest}
     restart: unless-stopped
+    mem_limit: 256m
+    labels:
+      com.centurylinklabs.watchtower.enable: "true"
     depends_on:
       postgres:
         condition: service_healthy
@@ -176,8 +181,11 @@ services:
       args:
         VITE_BASE_PATH: ${VITE_BASE_PATH:-/studio/}
         VITE_API_BASE_URL: ${VITE_API_BASE_URL:-/api/v1}
-    image: zenith-frontend:latest
+    image: ${FRONTEND_IMAGE:-ghcr.io/vickyibr/csui26-frontend:latest}
     restart: unless-stopped
+    mem_limit: 64m
+    labels:
+      com.centurylinklabs.watchtower.enable: "true"
     depends_on:
       backend:
         condition: service_healthy
@@ -205,6 +213,7 @@ services:
       target: production
     image: zenith-landing:latest
     restart: unless-stopped
+    mem_limit: 64m
     expose:
       - "80"
     networks:
@@ -224,6 +233,7 @@ services:
   gateway:
     image: nginx:alpine
     restart: unless-stopped
+    mem_limit: 64m
     depends_on:
       backend:
         condition: service_healthy
@@ -231,8 +241,8 @@ services:
         condition: service_healthy
     volumes:
       - ./config/gateway.conf:/etc/nginx/conf.d/default.conf:ro
-    expose:
-      - "80"
+    ports:
+      - "127.0.0.1:${ZENITH_GATEWAY_PORT:-8088}:80"
     networks:
       private: {}
       public: {}
@@ -247,6 +257,25 @@ services:
       options:
         max-size: "10m"
         max-file: "3"
+
+  watchtower:
+    image: containrrr/watchtower:latest
+    restart: unless-stopped
+    mem_limit: 64m
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    command:
+      - --label-enable
+      - --cleanup
+      - --interval
+      - "120"
+    networks:
+      public: {}
+    logging:
+      driver: json-file
+      options:
+        max-size: "5m"
+        max-file: "2"
 
 networks:
   private:

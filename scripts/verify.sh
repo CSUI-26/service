@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
-# Run after `docker compose -f compose.yml -f compose.dev.yml up -d`.
+# Run after `docker compose up -d`.
 
 set -eu -o pipefail
 
 project_dir=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)
 export ZENITH_ENV_FILE="$project_dir/.env"
-compose=(docker compose --project-directory "$project_dir" --env-file "$project_dir/.env" -f "$project_dir/compose.yml" -f "$project_dir/compose.dev.yml")
+compose=(docker compose --project-directory "$project_dir" --env-file "$project_dir/.env" -f "$project_dir/docker-compose.yml")
 postgres_port=${ZENITH_POSTGRES_PORT:-5432}
 s3_port=${ZENITH_S3_PORT:-8333}
 filer_port=${ZENITH_FILER_PORT:-8888}
