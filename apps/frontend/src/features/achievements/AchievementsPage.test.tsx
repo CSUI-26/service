@@ -129,7 +129,7 @@ describe('AchievementsPage', () => {
     expect(screen.getByRole('dialog')).toBeInTheDocument();
 
     // Image & team fields are visible even when Featured is unchecked
-    expect(screen.getByText('Achievement image (optional)')).toBeInTheDocument();
+    expect(screen.getByText('Achievement image (16:9, optional)')).toBeInTheDocument();
     expect(screen.getByLabelText('Team name (optional)')).toBeInTheDocument();
     expect(screen.getByLabelText('Team members (optional)')).toBeInTheDocument();
     expect(screen.getByLabelText('Description (optional)')).toBeInTheDocument();
@@ -140,7 +140,7 @@ describe('AchievementsPage', () => {
 
     // Toggling Featured enforces required fields
     await user.click(screen.getByLabelText('Featured Showcase item'));
-    expect(screen.getByText('Achievement image')).toBeInTheDocument();
+    expect(screen.getByText('Achievement image (16:9)')).toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: 'Save' }));
     expect(await screen.findByText('Award is required for featured achievements')).toBeInTheDocument();
     expect(screen.getByText('Image URL is required for featured achievements')).toBeInTheDocument();

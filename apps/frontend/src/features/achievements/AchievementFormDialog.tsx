@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useForm, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Loader2, Star, Trash2 } from 'lucide-react';
@@ -7,14 +7,15 @@ import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { FieldGroup } from '@/components/ui/field';
 import { FormDialog } from '@/components/patterns/FormDialog';
-import { ImageUploadEditor, type ImageUploadValue } from '@/components/patterns/ImageUploadEditor';
+import {
+  ImageUploadEditor,
+  type ImageUploadEditorHandle,
+} from '@/components/patterns/ImageUploadEditor';
 import { TextAreaField, TextField } from '@/components/patterns/TextField';
-import { achievementsApi } from '@/features/achievements/api';
 import {
   achievementFormSchema,
   type AchievementFormValues,
 } from '@/features/achievements/schema';
-import { normalizeSocialLink } from '@/features/members/socialLinks';
 
 function createEmptyValues(): AchievementFormValues {
   return {
@@ -28,7 +29,7 @@ function createEmptyValues(): AchievementFormValues {
     description: '',
     showOverlay: true,
     imageUrl: '',
-    imageConfig: undefined,
+    imageConfig: { x: 50, y: 50, zoom: 1, rotate: 0, aspect: '16:9' },
   };
 }
 
@@ -45,7 +46,9 @@ function toFormValues(achievement: Achievement | null): AchievementFormValues {
     description: achievement.description ?? '',
     showOverlay: achievement.showOverlay ?? true,
     imageUrl: achievement.image?.url ?? '',
-    imageConfig: achievement.image?.config,
+    imageConfig: achievement.image?.config
+      ? { ...achievement.image.config, aspect: '16:9' }
+      : { x: 50, y: 50, zoom: 1, rotate: 0, aspect: '16:9' },
   };
 }
 
@@ -55,7 +58,6 @@ interface AchievementFormDialogProps {
   editing: Achievement | null;
   saving: boolean;
   onDelete?: (achievement: Achievement) => void;
-  onImageSaved?: () => void;
   onSubmit: (values: AchievementFormValues) => void;
 }
 
@@ -65,9 +67,11 @@ export function AchievementFormDialog({
   editing,
   saving,
   onDelete,
-  onImageSaved,
   onSubmit,
 }: AchievementFormDialogProps) {
+  const imageEditorRef = useRef<ImageUploadEditorHandle | null>(null);
+  const [uploadingImage, setUploadingImage] = useState(false);
+
   const form = useForm<AchievementFormValues>({
     resolver: zodResolver(achievementFormSchema),
     defaultValues: toFormValues(editing),
@@ -91,13 +95,37 @@ export function AchievementFormDialog({
     if (open) reset(toFormValues(editing));
   }, [open, editing, reset]);
 
+  const busy = saving || uploadingImage;
+
+  const handleFormSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (imageEditorRef.current?.hasPendingFile()) {
+      setUploadingImage(true);
+      try {
+        const uploaded = await imageEditorRef.current.commitUpload();
+        if (uploaded) {
+          setValue('imageUrl', uploaded.url, { shouldValidate: true });
+          setValue('imageConfig', uploaded.config);
+        }
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : 'Failed to upload image');
+        setUploadingImage(false);
+        return;
+      } finally {
+        setUploadingImage(false);
+      }
+    }
+
+    await handleSubmit(onSubmit)(event);
+  };
+
   return (
     <FormDialog
       open={open}
       onOpenChange={onOpenChange}
       title={editing ? 'Edit achievement' : 'Add achievement'}
-      description="All achievements can include an image and team details. Featured items require an image, award, team, and summary."
-      onSubmit={handleSubmit(onSubmit)}
+      description="All achievements use 16:9 images and save automatically when you click Save."
+      onSubmit={handleFormSubmit}
       className="sm:max-w-2xl"
       footer={
         <div className="flex w-full items-center justify-between gap-2">
@@ -108,7 +136,7 @@ export function AchievementFormDialog({
                 variant="destructive"
                 size="sm"
                 onClick={() => onDelete(editing)}
-                disabled={saving}
+                disabled={busy}
               >
                 <Trash2 aria-hidden="true" />
                 Delete
@@ -120,13 +148,13 @@ export function AchievementFormDialog({
               type="button"
               variant="outline"
               onClick={() => onOpenChange(false)}
-              disabled={saving}
+              disabled={busy}
             >
               Cancel
             </Button>
-            <Button type="submit" disabled={saving}>
-              {saving ? <Loader2 className="animate-spin" aria-hidden="true" /> : null}
-              {saving ? 'Saving...' : 'Save'}
+            <Button type="submit" disabled={busy}>
+              {busy ? <Loader2 className="animate-spin" aria-hidden="true" /> : null}
+              {uploadingImage ? 'Uploading...' : saving ? 'Saving...' : 'Save'}
             </Button>
           </div>
         </div>
@@ -206,29 +234,17 @@ export function AchievementFormDialog({
 
         <div className="space-y-2">
           <ImageUploadEditor
+            editorRef={imageEditorRef}
+            deferUpload
+            defaultAspect="16:9"
             endpoint="/upload/achievement"
             uploadParams={slugId?.trim() ? { id: slugId.trim() } : undefined}
-            label={isFeatured ? 'Achievement image' : 'Achievement image (optional)'}
+            label={isFeatured ? 'Achievement image (16:9)' : 'Achievement image (16:9, optional)'}
             value={{ url: imageUrl ?? '', config: imageConfig }}
             onChange={({ url, config }) => {
               setValue('imageUrl', url, { shouldValidate: true });
-              setValue('imageConfig', config);
+              setValue('imageConfig', config ? { ...config, aspect: '16:9' } : undefined);
             }}
-            onCommit={
-              editing
-                ? async (next: ImageUploadValue) => {
-                    const image: ImageUploadValue = {
-                      url: normalizeSocialLink('photo', next.url),
-                      config: next.config,
-                    };
-                    const res = await achievementsApi.update(editing.id, { image });
-                    setValue('imageUrl', res.data.image?.url ?? image.url, { shouldValidate: true });
-                    setValue('imageConfig', res.data.image?.config ?? image.config);
-                    onImageSaved?.();
-                    toast.success('Achievement image saved');
-                  }
-                : undefined
-            }
           />
           {errors.imageUrl?.message ? (
             <p role="alert" className="text-xs text-destructive">

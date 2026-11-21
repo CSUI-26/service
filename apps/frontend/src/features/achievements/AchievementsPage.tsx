@@ -45,14 +45,6 @@ const FEATURED_FILTER_LABELS: Record<string, string> = {
   false: 'Regular only',
 };
 
-function aspectToCss(aspect?: string): string {
-  if (!aspect) return '16 / 9';
-  const [rawW, rawH] = aspect.split(':');
-  const w = Number(rawW);
-  const h = Number(rawH);
-  return Number.isFinite(w) && Number.isFinite(h) && w > 0 && h > 0 ? `${w} / ${h}` : '16 / 9';
-}
-
 function imageStyle(cfg?: ImageConfig) {
   if (!cfg) return undefined;
   return {
@@ -294,8 +286,8 @@ export default function AchievementsPage() {
                 >
                   <TableCell className="w-24 px-3 py-2">
                     <div
-                      className="flex w-20 items-center justify-center overflow-hidden rounded-md border border-border bg-muted"
-                      style={{ aspectRatio: aspectToCss(item.image?.config?.aspect) }}
+                      className="flex w-24 items-center justify-center overflow-hidden rounded-md border border-border bg-muted"
+                      style={{ aspectRatio: '16 / 9' }}
                     >
                       {item.image?.url ? (
                         <img
@@ -408,9 +400,6 @@ export default function AchievementsPage() {
         onDelete={(item) => {
           setFormOpen(false);
           setDeleting(item);
-        }}
-        onImageSaved={() => {
-          list.reload();
         }}
         onSubmit={submit}
       />

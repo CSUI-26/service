@@ -1,4 +1,4 @@
-import { useEffect, useId, useRef, useState } from 'react';
+import { useEffect, useId, useImperativeHandle, useRef, useState, type Ref } from 'react';
 import type { ImageConfig } from '@zenith/shared';
 import { Image as ImageIcon, Loader2, Lock, RotateCcw, RotateCw, Unlock, Upload } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -10,6 +10,11 @@ export interface ImageUploadValue {
   config?: ImageConfig;
 }
 
+export interface ImageUploadEditorHandle {
+  hasPendingFile: () => boolean;
+  commitUpload: () => Promise<ImageUploadValue | null>;
+}
+
 export interface ImageUploadEditorProps {
   value: ImageUploadValue;
   onChange: (next: ImageUploadValue) => void;
@@ -18,6 +23,8 @@ export interface ImageUploadEditorProps {
   uploadParams?: Record<string, string>;
   defaultAspect?: string;
   label?: string;
+  deferUpload?: boolean;
+  editorRef?: Ref<ImageUploadEditorHandle>;
 }
 
 const ALLOWED_MIME_TYPES = new Set(['image/webp', 'image/png', 'image/jpeg']);
@@ -46,6 +53,8 @@ export function ImageUploadEditor({
   uploadParams,
   defaultAspect = '1:1',
   label,
+  deferUpload = false,
+  editorRef,
 }: ImageUploadEditorProps): React.JSX.Element {
   const fileInputId = useId();
   const imgRef = useRef<HTMLImageElement | null>(null);
@@ -196,12 +205,13 @@ export function ImageUploadEditor({
     }
   }
 
-  async function handleApplyUpload() {
-    if (!pendingFileUrl) return;
+  async function handleApplyUpload(): Promise<ImageUploadValue | null> {
+    if (!pendingFileUrl) return null;
     const img = imgRef.current;
     if (!img || !img.complete || img.naturalWidth === 0) {
-      setError('Image is still loading. Try again in a moment.');
-      return;
+      const msg = 'Image is still loading. Try again in a moment.';
+      setError(msg);
+      throw new Error(msg);
     }
 
     setError(null);
@@ -220,12 +230,23 @@ export function ImageUploadEditor({
       setPendingFileUrl(null);
       setNeedsCommit(false);
       setIsLocked(true);
+      return next;
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to upload image.');
+      const msg = err instanceof Error ? err.message : 'Failed to upload image.';
+      setError(msg);
+      throw err instanceof Error ? err : new Error(msg);
     } finally {
       setIsUploading(false);
     }
   }
+
+  useImperativeHandle(editorRef, () => ({
+    hasPendingFile: () => Boolean(pendingFileUrl),
+    commitUpload: async () => {
+      if (!pendingFileUrl) return null;
+      return handleApplyUpload();
+    },
+  }));
 
   async function handleCommitCurrent() {
     if (!onCommit) return;
@@ -411,13 +432,17 @@ export function ImageUploadEditor({
         </div>
       ) : null}
 
-      {pendingFileUrl ? (
+      {pendingFileUrl && !deferUpload ? (
         <div className="flex max-w-sm items-center gap-2">
           <Button
             type="button"
             size="sm"
             disabled={isUploading}
-            onClick={handleApplyUpload}
+            onClick={() => {
+              void handleApplyUpload().catch(() => {
+                // Error message is already displayed in component state.
+              });
+            }}
           >
             {isUploading ? (
               <>
@@ -429,7 +454,7 @@ export function ImageUploadEditor({
             )}
           </Button>
         </div>
-      ) : onCommit && needsCommit ? (
+      ) : !deferUpload && onCommit && needsCommit ? (
         <div className="flex max-w-sm items-center gap-2">
           <Button
             type="button"
