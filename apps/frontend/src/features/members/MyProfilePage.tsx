@@ -1,9 +1,11 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router';
-import { Pencil, Sparkles } from 'lucide-react';
+import { Pencil, Sparkles, User } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
+import { EmptyState } from '@/components/patterns/EmptyState';
 import { ListState } from '@/components/patterns/ListState';
+import { ListSkeleton } from '@/components/patterns/skeletons';
 import { ProfileShowcaseCard } from '@/features/members/ProfileShowcaseCard';
 import { membersApi } from '@/features/members/api';
 import type { Member } from '@/features/members/types';
@@ -18,9 +20,12 @@ export default function MyProfilePage() {
   const { user } = useAuth();
   const [member, setMember] = useState<Member | null>(null);
   const [programs, setPrograms] = useState<Program[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [fetchedKey, setFetchedKey] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [reloadNonce, setReloadNonce] = useState(0);
+
+  const currentKey = user?.npm ? `${user.npm}:${reloadNonce}` : '';
+  const loading = Boolean(currentKey) && fetchedKey !== currentKey;
 
   useEffect(() => {
     let active = true;
@@ -40,12 +45,9 @@ export default function MyProfilePage() {
   }, []);
 
   useEffect(() => {
-    if (!user?.npm) {
-      setLoading(false);
-      return;
-    }
+    if (!user?.npm) return;
     let active = true;
-    setLoading(true);
+    const key = `${user.npm}:${reloadNonce}`;
     membersApi
       .get(user.npm)
       .then((res) => {
@@ -60,7 +62,7 @@ export default function MyProfilePage() {
         }
       })
       .finally(() => {
-        if (active) setLoading(false);
+        if (active) setFetchedKey(key);
       });
     return () => {
       active = false;
@@ -100,6 +102,14 @@ export default function MyProfilePage() {
         error={error}
         isEmpty={!member}
         onRetry={() => setReloadNonce((n) => n + 1)}
+        skeleton={<ListSkeleton rows={2} />}
+        empty={
+          <EmptyState
+            icon={User}
+            title="Profil belum tersedia"
+            description="Data profil belum ditemukan untuk akun ini."
+          />
+        }
       >
         {member ? (
           <ProfileShowcaseCard

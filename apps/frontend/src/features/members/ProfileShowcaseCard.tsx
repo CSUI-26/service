@@ -11,6 +11,7 @@ import {
   Sparkles,
   Tag,
   User as UserIcon,
+  type LucideIcon,
 } from 'lucide-react';
 import type { Member } from '@/features/members/types';
 import { getSocialLinkHref, openSocialLink, type SocialPlatform } from '@/features/members/socialLinks';
@@ -90,17 +91,20 @@ export function ProfileShowcaseCard({ member, isOwner = false }: ProfileShowcase
   const niches = splitNiches(member.niche);
   const programLabel = member.programName || member.major || 'CSUI 2026';
 
-  const socialItems: Array<{
+  const candidateSocials: Array<{
     platform: Exclude<SocialPlatform, 'photo'>;
     label: string;
     value: string;
-    icon: typeof AtSign;
+    icon: LucideIcon;
   }> = [
     { platform: 'instagram', label: 'Instagram', value: member.instagram ?? '', icon: AtSign },
     { platform: 'github', label: 'GitHub', value: member.github ?? '', icon: Code2 },
     { platform: 'linkedin', label: 'LinkedIn', value: member.linkedin ?? '', icon: Briefcase },
     { platform: 'line', label: 'LINE', value: member.line ?? '', icon: MessageCircle },
-  ].filter((item) => Boolean(getSocialLinkHref(item.platform, item.value)));
+  ];
+  const socialItems = candidateSocials.filter((item) =>
+    Boolean(getSocialLinkHref(item.platform, item.value)),
+  );
 
   return (
     <div className="surface-card rounded-3xl p-5 shadow-xl sm:p-8">
@@ -133,10 +137,7 @@ export function ProfileShowcaseCard({ member, isOwner = false }: ProfileShowcase
           </div>
 
           {showLockHint ? (
-            <div
-              role="status"
-              className="pointer-events-none absolute inset-0 flex items-center justify-center bg-black/70 p-4 text-center backdrop-blur-xs"
-            >
+            <output className="pointer-events-none absolute inset-0 flex items-center justify-center bg-black/70 p-4 text-center backdrop-blur-xs">
               <div className="flex flex-col items-center gap-1.5 rounded-xl border border-primary/50 bg-background/95 px-3.5 py-2.5 text-xs font-medium text-foreground shadow-lg">
                 <Lock className="size-4 text-emerald-400" aria-hidden="true" />
                 <span>
@@ -145,7 +146,7 @@ export function ProfileShowcaseCard({ member, isOwner = false }: ProfileShowcase
                     : 'Foto dikunci agar nyaman saat digeser.'}
                 </span>
               </div>
-            </div>
+            </output>
           ) : null}
         </div>
 
