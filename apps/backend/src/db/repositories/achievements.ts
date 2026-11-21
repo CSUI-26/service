@@ -66,7 +66,12 @@ export async function getAllAchievements(
   const conditions = buildAchievementConditions(opts);
   let query = db.select().from(achievements).$dynamic();
   if (conditions.length) query = query.where(and(...conditions));
-  query = query.orderBy(desc(achievements.year), asc(achievements.position), asc(achievements.title));
+  query = query.orderBy(
+    desc(achievements.isFeatured),
+    desc(achievements.year),
+    asc(achievements.position),
+    asc(achievements.title),
+  );
   if (opts.limit !== undefined) {
     query = query.limit(opts.limit).offset(opts.offset ?? 0);
   }
@@ -108,6 +113,12 @@ export async function getGroupedAchievements(): Promise<PublicAchievementsRespon
       title: row.title,
       ...(row.award ? { award: row.award } : {}),
       year: row.year,
+      isFeatured: false,
+      ...(row.image?.url ? { image: row.image.url } : {}),
+      ...(row.image?.url && row.image?.config ? { imageConfig: row.image.config } : {}),
+      ...(row.teamName ? { teamName: row.teamName } : {}),
+      ...(row.members && row.members.length > 0 ? { members: row.members } : {}),
+      ...(row.description ? { description: row.description } : {}),
     });
     byYear.set(row.year, list);
   }

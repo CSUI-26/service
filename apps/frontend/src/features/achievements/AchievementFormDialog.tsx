@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 import { useForm, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { Loader2, Trash2 } from 'lucide-react';
+import { Loader2, Star, Trash2 } from 'lucide-react';
 import type { Achievement } from '@zenith/shared';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
@@ -96,7 +96,7 @@ export function AchievementFormDialog({
       open={open}
       onOpenChange={onOpenChange}
       title={editing ? 'Edit achievement' : 'Add achievement'}
-      description="Featured items require a banner image, team details, and summary."
+      description="All achievements can include an image and team details. Featured items require an image, award, team, and summary."
       onSubmit={handleSubmit(onSubmit)}
       className="sm:max-w-2xl"
       footer={
@@ -172,87 +172,97 @@ export function AchievementFormDialog({
           />
         </div>
 
-        <label className="flex cursor-pointer items-center gap-2 text-sm font-medium text-foreground">
-          <input
-            type="checkbox"
-            className="size-4 rounded border-border accent-primary"
-            {...register('isFeatured')}
-          />
-          <span>Featured Showcase item</span>
-        </label>
-
-        {isFeatured ? (
-          <div className="space-y-4 rounded-lg border border-border bg-muted/30 p-4">
-            <div className="space-y-2">
-              <ImageUploadEditor
-                endpoint="/upload/achievement"
-                uploadParams={slugId?.trim() ? { slug: slugId.trim() } : undefined}
-                label="Banner image"
-                value={{ url: imageUrl ?? '', config: imageConfig }}
-                onChange={({ url, config }) => {
-                  setValue('imageUrl', url, { shouldValidate: true });
-                  setValue('imageConfig', config);
-                }}
-                onCommit={
-                  editing
-                    ? async (next: ImageUploadValue) => {
-                        const image: ImageUploadValue = {
-                          url: normalizeSocialLink('photo', next.url),
-                          config: next.config,
-                        };
-                        const res = await achievementsApi.update(editing.id, { image });
-                        setValue('imageUrl', res.data.image?.url ?? image.url, { shouldValidate: true });
-                        setValue('imageConfig', res.data.image?.config ?? image.config);
-                        onImageSaved?.();
-                        toast.success('Achievement image saved');
-                      }
-                    : undefined
-                }
-              />
-              {errors.imageUrl?.message ? (
-                <p role="alert" className="text-xs text-destructive">
-                  {errors.imageUrl.message}
-                </p>
-              ) : null}
-            </div>
-
-            <TextField
-              id="achievement-team"
-              label="Team name"
-              placeholder="Team Zenith"
-              error={errors.teamName?.message}
-              {...register('teamName')}
+        <div
+          className={
+            isFeatured
+              ? 'space-y-3 rounded-lg border border-primary/40 bg-primary/5 p-3.5'
+              : 'space-y-3 rounded-lg border border-border bg-muted/30 p-3.5'
+          }
+        >
+          <label className="flex cursor-pointer items-center gap-2 text-sm font-medium text-foreground">
+            <input
+              type="checkbox"
+              className="size-4 rounded border-border accent-primary"
+              {...register('isFeatured')}
             />
-
-            <TextAreaField
-              id="achievement-members"
-              label="Team members"
-              placeholder="Alice IK'24, Bob SI'24"
-              hint="Separate member names with commas or new lines."
-              rows={3}
-              error={errors.membersText?.message}
-              {...register('membersText')}
+            <Star
+              className={isFeatured ? 'size-4 fill-primary text-primary' : 'size-4 text-muted-foreground'}
+              aria-hidden="true"
             />
+            <span>Featured Showcase item</span>
+          </label>
 
-            <TextAreaField
-              id="achievement-description"
-              label="Description"
-              placeholder="Summary of the competition and result."
-              rows={3}
-              error={errors.description?.message}
-              {...register('description')}
-            />
-
-            <label className="flex cursor-pointer items-center gap-2 text-sm font-medium text-foreground">
+          {isFeatured ? (
+            <label className="flex cursor-pointer items-center gap-2 pl-6 text-xs text-muted-foreground">
               <input
                 type="checkbox"
-                className="size-4 rounded border-border accent-primary"
+                className="size-3.5 rounded border-border accent-primary"
                 {...register('showOverlay')}
               />
-              <span>Show typography overlay on showcase card</span>
+              <span>Show typography overlay on showcase banner</span>
             </label>
-          </div>
-        ) : null}
+          ) : null}
+        </div>
+
+        <div className="space-y-2">
+          <ImageUploadEditor
+            endpoint="/upload/achievement"
+            uploadParams={slugId?.trim() ? { id: slugId.trim() } : undefined}
+            label={isFeatured ? 'Achievement image' : 'Achievement image (optional)'}
+            value={{ url: imageUrl ?? '', config: imageConfig }}
+            onChange={({ url, config }) => {
+              setValue('imageUrl', url, { shouldValidate: true });
+              setValue('imageConfig', config);
+            }}
+            onCommit={
+              editing
+                ? async (next: ImageUploadValue) => {
+                    const image: ImageUploadValue = {
+                      url: normalizeSocialLink('photo', next.url),
+                      config: next.config,
+                    };
+                    const res = await achievementsApi.update(editing.id, { image });
+                    setValue('imageUrl', res.data.image?.url ?? image.url, { shouldValidate: true });
+                    setValue('imageConfig', res.data.image?.config ?? image.config);
+                    onImageSaved?.();
+                    toast.success('Achievement image saved');
+                  }
+                : undefined
+            }
+          />
+          {errors.imageUrl?.message ? (
+            <p role="alert" className="text-xs text-destructive">
+              {errors.imageUrl.message}
+            </p>
+          ) : null}
+        </div>
+
+        <TextField
+          id="achievement-team"
+          label={isFeatured ? 'Team name' : 'Team name (optional)'}
+          placeholder="Team Zenith"
+          error={errors.teamName?.message}
+          {...register('teamName')}
+        />
+
+        <TextAreaField
+          id="achievement-members"
+          label={isFeatured ? 'Team members' : 'Team members (optional)'}
+          placeholder="Alice IK'24, Bob SI'24"
+          hint="Separate member names with commas or new lines."
+          rows={3}
+          error={errors.membersText?.message}
+          {...register('membersText')}
+        />
+
+        <TextAreaField
+          id="achievement-description"
+          label={isFeatured ? 'Description' : 'Description (optional)'}
+          placeholder="Summary of the competition and result."
+          rows={3}
+          error={errors.description?.message}
+          {...register('description')}
+        />
       </FieldGroup>
     </FormDialog>
   );

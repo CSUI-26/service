@@ -1,15 +1,9 @@
-import { useEffect, useRef, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
-import { Pencil, Plus, RotateCcw, Trash2, Trophy } from 'lucide-react';
-import type {
-  Achievement,
-  ImageConfig,
-  LatestAchievement,
-  PublicAchievementsResponse,
-} from '@zenith/shared';
+import { Pencil, Plus, RotateCcw, Star, Trash2, Trophy } from 'lucide-react';
+import type { Achievement, ImageConfig } from '@zenith/shared';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
 import {
   Select,
   SelectContent,
@@ -17,13 +11,22 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
 import { ConfirmDialog } from '@/components/patterns/ConfirmDialog';
 import { EmptyState } from '@/components/patterns/EmptyState';
 import { Kbd } from '@/components/patterns/Kbd';
 import { ListState } from '@/components/patterns/ListState';
 import { PageHeader } from '@/components/patterns/PageHeader';
 import { SearchInput } from '@/components/patterns/SearchInput';
-import { CardGridSkeleton } from '@/components/patterns/skeletons';
+import { ListSkeleton } from '@/components/patterns/skeletons';
+import { Paginator } from '@/components/Paginator';
 import { AchievementFormDialog } from '@/features/achievements/AchievementFormDialog';
 import { achievementsApi } from '@/features/achievements/api';
 import {
@@ -32,7 +35,15 @@ import {
 } from '@/features/achievements/schema';
 import { useDocumentTitle } from '@/hooks/useDocumentTitle';
 import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts';
-import { api } from '@/lib/api';
+import { useResourceList } from '@/hooks/useResourceList';
+
+const PAGE_SIZE = 12;
+
+const FEATURED_FILTER_LABELS: Record<string, string> = {
+  all: 'All status',
+  true: 'Featured only',
+  false: 'Regular only',
+};
 
 function aspectToCss(aspect?: string): string {
   if (!aspect) return '16 / 9';
@@ -50,75 +61,44 @@ function imageStyle(cfg?: ImageConfig) {
   };
 }
 
-function matchesKeyword(parts: Array<string | undefined>, query: string): boolean {
-  if (!query) return true;
-  return parts.some((part) => part?.toLowerCase().includes(query));
-}
-
 export default function AchievementsPage() {
   useDocumentTitle('Achievements');
 
-  const [data, setData] = useState<PublicAchievementsResponse>({
-    latestAchievements: [],
-    yearlyAchievementsByYear: [],
-  });
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [reloadNonce, setReloadNonce] = useState(0);
-
   const [search, setSearch] = useState('');
   const [yearFilter, setYearFilter] = useState('');
+  const [featuredFilter, setFeaturedFilter] = useState('');
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<Achievement | null>(null);
-  const [deleting, setDeleting] = useState<{ id: string; title: string } | null>(null);
+  const [deleting, setDeleting] = useState<Achievement | null>(null);
   const [saving, setSaving] = useState(false);
   const [removing, setRemoving] = useState(false);
   const searchRef = useRef<HTMLInputElement>(null);
 
-  useEffect(() => {
-    let active = true;
-    achievementsApi
-      .listGrouped()
-      .then((res) => {
-        if (active) {
-          setData(res.data);
-          setError(null);
-        }
-      })
-      .catch((err) => {
-        if (active) {
-          setError(err instanceof Error ? err.message : 'Failed to load achievements');
-        }
-      })
-      .finally(() => {
-        if (active) setLoading(false);
-      });
-    return () => {
-      active = false;
-    };
-  }, [reloadNonce]);
+  const list = useResourceList<Achievement>({
+    path: '/achievements',
+    pageSize: PAGE_SIZE,
+    filters: { search, year: yearFilter, featured: featuredFilter },
+  });
 
-  const reload = () => {
-    setLoading(true);
-    setError(null);
-    setReloadNonce((n) => n + 1);
-  };
+  const yearOptions = useMemo(() => {
+    const set = new Set<number>([2030, 2029, 2028, 2027, 2026, 2025, 2024]);
+    for (const item of list.data) {
+      if (Number.isFinite(item.year)) set.add(item.year);
+    }
+    if (yearFilter && Number.isFinite(Number(yearFilter))) {
+      set.add(Number(yearFilter));
+    }
+    return Array.from(set).sort((a, b) => b - a);
+  }, [list.data, yearFilter]);
 
   const openCreate = () => {
     setEditing(null);
     setFormOpen(true);
   };
 
-  const openEdit = async (target: { id: string; title: string }) => {
-    try {
-      const res = await api<{ data: Achievement }>(
-        `/achievements/${encodeURIComponent(target.id)}`,
-      );
-      setEditing(res.data);
-      setFormOpen(true);
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : `Failed to load ${target.title}`);
-    }
+  const openEdit = (item: Achievement) => {
+    setEditing(item);
+    setFormOpen(true);
   };
 
   useKeyboardShortcuts(
@@ -134,10 +114,19 @@ export default function AchievementsPage() {
 
   const submit = async (values: AchievementFormValues) => {
     const payload = toAchievementPayload(values);
+    const snapshot = list.data;
     setSaving(true);
     try {
       if (editing) {
         const { id: _id, ...updates } = payload;
+        const nextRecord: Achievement = {
+          ...editing,
+          ...updates,
+          position: editing.position,
+        };
+        list.mutate((items) =>
+          items.map((item) => (item.id === editing.id ? nextRecord : item)),
+        );
         await achievementsApi.update(editing.id, {
           ...updates,
           position: editing.position,
@@ -148,8 +137,9 @@ export default function AchievementsPage() {
         toast.success('Achievement added');
       }
       setFormOpen(false);
-      reload();
+      list.reload();
     } catch (err) {
+      list.mutate(() => snapshot);
       toast.error(err instanceof Error ? err.message : 'Failed to save achievement');
     } finally {
       setSaving(false);
@@ -159,63 +149,38 @@ export default function AchievementsPage() {
   const confirmDelete = async () => {
     if (!deleting) return;
     const target = deleting;
+    const snapshot = list.data;
     setRemoving(true);
+    setDeleting(null);
+    list.mutate((items) => items.filter((item) => item.id !== target.id));
     try {
       await achievementsApi.remove(target.id);
-      setData((prev) => ({
-        latestAchievements: prev.latestAchievements.filter((item) => item.id !== target.id),
-        yearlyAchievementsByYear: prev.yearlyAchievementsByYear
-          .map((group) => ({
-            ...group,
-            items: group.items.filter((item) => item.id !== target.id),
-          }))
-          .filter((group) => group.items.length > 0),
-      }));
-      setDeleting(null);
       toast.success('Achievement deleted');
-      reload();
+      list.reload();
     } catch (err) {
+      list.mutate(() => snapshot);
       toast.error(err instanceof Error ? err.message : 'Failed to delete achievement');
     } finally {
       setRemoving(false);
     }
   };
 
-  const keyword = search.trim().toLowerCase();
-  const years = data.yearlyAchievementsByYear.map((group) => group.year);
-
-  const visibleFeatured: LatestAchievement[] = yearFilter
-    ? []
-    : data.latestAchievements.filter((item) =>
-        matchesKeyword([item.title, item.award, item.teamName, ...item.members], keyword),
-      );
-
-  const filteredYears = data.yearlyAchievementsByYear
-    .filter((group) => !yearFilter || String(group.year) === yearFilter)
-    .map((group) => ({
-      ...group,
-      items: group.items.filter((item) =>
-        matchesKeyword([item.title, item.award, String(item.year)], keyword),
-      ),
-    }))
-    .filter((group) => group.items.length > 0);
-
-  const yearlyCount = filteredYears.reduce((sum, group) => sum + group.items.length, 0);
-  const hasFilter = Boolean(search || yearFilter);
+  const hasFilter = Boolean(search || yearFilter || featuredFilter);
 
   const resetFilters = () => {
     setSearch('');
     setYearFilter('');
+    setFeaturedFilter('');
   };
 
   return (
-    <>
+    <div className="space-y-4">
       <PageHeader
         title="Achievements"
         description={
           <>
-            Featured competition spotlight and yearly archive. Press <Kbd>n</Kbd> to add,{' '}
-            <Kbd>/</Kbd> to search.
+            Manage competition achievements, photos, and featured highlights. Press <Kbd>n</Kbd> to
+            add, <Kbd>/</Kbd> to search.
           </>
         }
         actions={
@@ -226,7 +191,7 @@ export default function AchievementsPage() {
         }
       />
 
-      <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_12rem_auto]">
+      <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_10rem_11rem_auto]">
         <SearchInput
           ref={searchRef}
           placeholder="Search title, award, or team"
@@ -240,17 +205,30 @@ export default function AchievementsPage() {
           onValueChange={(value) => setYearFilter(value === 'all' ? '' : (value ?? ''))}
         >
           <SelectTrigger className="w-full" aria-label="Filter year">
-            <SelectValue placeholder="All years">
-              {yearFilter || 'All years'}
-            </SelectValue>
+            <SelectValue placeholder="All years">{yearFilter || 'All years'}</SelectValue>
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All years</SelectItem>
-            {years.map((year) => (
+            {yearOptions.map((year) => (
               <SelectItem key={year} value={String(year)} className="font-mono tabular-nums">
                 {year}
               </SelectItem>
             ))}
+          </SelectContent>
+        </Select>
+        <Select
+          value={featuredFilter || 'all'}
+          onValueChange={(value) => setFeaturedFilter(value === 'all' ? '' : (value ?? ''))}
+        >
+          <SelectTrigger className="w-full" aria-label="Filter status">
+            <SelectValue placeholder="All status">
+              {FEATURED_FILTER_LABELS[featuredFilter || 'all']}
+            </SelectValue>
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All status</SelectItem>
+            <SelectItem value="true">Featured only</SelectItem>
+            <SelectItem value="false">Regular only</SelectItem>
           </SelectContent>
         </Select>
         {hasFilter ? (
@@ -262,18 +240,18 @@ export default function AchievementsPage() {
       </div>
 
       <ListState
-        loading={loading}
-        error={error}
-        isEmpty={visibleFeatured.length === 0 && filteredYears.length === 0}
-        onRetry={reload}
-        skeleton={<CardGridSkeleton count={6} />}
+        loading={list.loading}
+        error={list.error}
+        isEmpty={list.data.length === 0}
+        onRetry={list.reload}
+        skeleton={<ListSkeleton rows={6} />}
         empty={
           <EmptyState
             icon={Trophy}
             title={hasFilter ? 'No matching achievements' : 'No achievements yet'}
             description={
               hasFilter
-                ? 'Change the keyword or year filter used.'
+                ? 'Change the search keyword, year, or status filter.'
                 : 'Add the first achievement to populate the showcase and archive.'
             }
             action={
@@ -291,177 +269,135 @@ export default function AchievementsPage() {
           />
         }
       >
-        <div className="space-y-8">
-          {visibleFeatured.length > 0 ? (
-            <section className="space-y-4">
-              <div className="flex items-center gap-2">
-                <h2 className="text-lg font-semibold tracking-tight text-foreground">
-                  Featured Showcase
-                </h2>
-                <Badge variant="secondary" className="font-mono tabular-nums">
-                  {visibleFeatured.length}
-                </Badge>
-              </div>
-
-              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                {visibleFeatured.map((item) => {
-                  const showOverlay = item.showOverlay !== false;
-                  return (
-                    <Card key={item.id} className="gap-0 overflow-hidden py-0">
-                      <div
-                        className="relative w-full overflow-hidden bg-muted"
-                        style={{ aspectRatio: aspectToCss(item.imageConfig?.aspect) }}
-                      >
+        <div className="overflow-hidden rounded-xl border border-border bg-card">
+          <Table className="text-xs">
+            <TableHeader className="bg-muted/50 text-[11px] uppercase text-muted-foreground">
+              <TableRow>
+                <TableHead className="px-3">Preview</TableHead>
+                <TableHead className="px-3">Title &amp; Team</TableHead>
+                <TableHead className="px-3">Award</TableHead>
+                <TableHead className="px-3 font-mono">Year</TableHead>
+                <TableHead className="px-3">Highlight</TableHead>
+                <TableHead className="px-3 text-right">Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {list.data.map((item) => (
+                <TableRow
+                  key={item.id}
+                  data-featured={item.isFeatured ? 'true' : 'false'}
+                  className={
+                    item.isFeatured
+                      ? 'border-l-2 border-l-primary bg-primary/5 hover:bg-primary/10'
+                      : undefined
+                  }
+                >
+                  <TableCell className="w-24 px-3 py-2">
+                    <div
+                      className="flex w-20 items-center justify-center overflow-hidden rounded-md border border-border bg-muted"
+                      style={{ aspectRatio: aspectToCss(item.image?.config?.aspect) }}
+                    >
+                      {item.image?.url ? (
                         <img
-                          src={item.image}
+                          src={item.image.url}
                           alt={item.title}
-                          style={imageStyle(item.imageConfig)}
+                          style={imageStyle(item.image.config)}
                           className="size-full object-cover"
                         />
-                        {showOverlay ? (
-                          <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-background/95 via-background/75 to-transparent p-4 pt-10">
-                            <Badge variant="secondary" className="mb-1.5 font-mono">
-                              {item.award}
-                            </Badge>
-                            <h3 className="text-sm font-semibold leading-snug text-foreground">
-                              {item.title}
-                            </h3>
-                          </div>
-                        ) : null}
-                      </div>
+                      ) : (
+                        <Trophy
+                          className="size-4 text-muted-foreground/60"
+                          aria-hidden="true"
+                        />
+                      )}
+                    </div>
+                  </TableCell>
 
-                      <CardContent className="flex flex-1 flex-col gap-3 py-4">
-                        {!showOverlay ? (
-                          <div className="space-y-1">
-                            <Badge variant="secondary" className="font-mono">
-                              {item.award}
-                            </Badge>
-                            <h3 className="text-sm font-semibold leading-snug text-foreground">
-                              {item.title}
-                            </h3>
-                          </div>
-                        ) : null}
-
-                        <div className="space-y-1">
-                          <p className="text-xs font-medium text-muted-foreground">
-                            {item.teamName}
-                          </p>
-                          <p className="line-clamp-3 text-sm text-muted-foreground">
-                            {item.description}
-                          </p>
-                        </div>
-
-                        <div className="flex flex-wrap gap-1.5">
-                          {item.members.map((member) => (
-                            <Badge
-                              key={member}
-                              variant="outline"
-                              className="text-xs font-normal"
-                            >
-                              {member}
-                            </Badge>
-                          ))}
-                        </div>
-
-                        <div className="mt-auto flex justify-end gap-1 pt-1">
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="icon-sm"
-                            aria-label={`Edit ${item.title}`}
-                            onClick={() => openEdit(item)}
+                  <TableCell className="max-w-xs px-3 py-2">
+                    <p className="truncate font-medium text-foreground">{item.title}</p>
+                    <p className="truncate font-mono text-[11px] text-muted-foreground">
+                      {item.id}
+                      {item.teamName ? ` · ${item.teamName}` : ''}
+                    </p>
+                    {item.members.length > 0 ? (
+                      <div className="mt-1 flex flex-wrap gap-1">
+                        {item.members.slice(0, 3).map((member) => (
+                          <Badge
+                            key={member}
+                            variant="outline"
+                            className="px-1.5 py-0 text-[10px] font-normal"
                           >
-                            <Pencil aria-hidden="true" />
-                          </Button>
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="icon-sm"
-                            aria-label={`Delete ${item.title}`}
-                            onClick={() => setDeleting({ id: item.id, title: item.title })}
-                          >
-                            <Trash2 aria-hidden="true" />
-                          </Button>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  );
-                })}
-              </div>
-            </section>
-          ) : null}
-
-          {filteredYears.length > 0 ? (
-            <section className="space-y-4">
-              <div className="flex items-center gap-2">
-                <h2 className="text-lg font-semibold tracking-tight text-foreground">
-                  Yearly Archive
-                </h2>
-                <Badge variant="secondary" className="font-mono tabular-nums">
-                  {yearlyCount}
-                </Badge>
-              </div>
-
-              <div className="space-y-4">
-                {filteredYears.map((group) => (
-                  <Card key={group.year} className="gap-0 overflow-hidden py-0">
-                    <CardContent className="p-0">
-                      <div className="flex items-center justify-between border-b border-border px-4 py-3">
-                        <h3 className="font-mono text-base font-semibold tabular-nums text-foreground">
-                          {group.year}
-                        </h3>
-                        <Badge variant="outline" className="font-mono tabular-nums">
-                          {group.items.length}
-                        </Badge>
-                      </div>
-
-                      <ul className="divide-y divide-border">
-                        {group.items.map((item) => (
-                          <li
-                            key={item.id}
-                            className="flex items-center justify-between gap-3 px-4 py-3"
-                          >
-                            <div className="flex min-w-0 flex-wrap items-center gap-2">
-                              <span className="text-sm font-medium text-foreground">
-                                {item.title}
-                              </span>
-                              {item.award ? (
-                                <Badge variant="secondary" className="font-mono text-xs">
-                                  {item.award}
-                                </Badge>
-                              ) : null}
-                            </div>
-
-                            <div className="flex shrink-0 items-center gap-1">
-                              <Button
-                                type="button"
-                                variant="ghost"
-                                size="icon-sm"
-                                aria-label={`Edit ${item.title}`}
-                                onClick={() => openEdit(item)}
-                              >
-                                <Pencil aria-hidden="true" />
-                              </Button>
-                              <Button
-                                type="button"
-                                variant="ghost"
-                                size="icon-sm"
-                                aria-label={`Delete ${item.title}`}
-                                onClick={() => setDeleting({ id: item.id, title: item.title })}
-                              >
-                                <Trash2 aria-hidden="true" />
-                              </Button>
-                            </div>
-                          </li>
+                            {member}
+                          </Badge>
                         ))}
-                      </ul>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-            </section>
-          ) : null}
+                        {item.members.length > 3 ? (
+                          <Badge variant="outline" className="px-1.5 py-0 font-mono text-[10px]">
+                            +{item.members.length - 3}
+                          </Badge>
+                        ) : null}
+                      </div>
+                    ) : null}
+                  </TableCell>
+
+                  <TableCell className="px-3 py-2">
+                    {item.award ? (
+                      <Badge variant="secondary" className="font-mono text-[11px]">
+                        {item.award}
+                      </Badge>
+                    ) : (
+                      <span className="text-muted-foreground">None</span>
+                    )}
+                  </TableCell>
+
+                  <TableCell className="px-3 py-2 font-mono tabular-nums text-foreground">
+                    {item.year}
+                  </TableCell>
+
+                  <TableCell className="px-3 py-2">
+                    {item.isFeatured ? (
+                      <Badge className="gap-1 bg-primary text-primary-foreground">
+                        <Star className="size-3 fill-current" aria-hidden="true" />
+                        <span>Featured</span>
+                      </Badge>
+                    ) : (
+                      <span className="text-muted-foreground">Regular</span>
+                    )}
+                  </TableCell>
+
+                  <TableCell className="px-3 py-2 text-right">
+                    <div className="inline-flex items-center justify-end gap-1">
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon-sm"
+                        aria-label={`Edit ${item.title}`}
+                        onClick={() => openEdit(item)}
+                      >
+                        <Pencil aria-hidden="true" />
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon-sm"
+                        aria-label={`Delete ${item.title}`}
+                        onClick={() => setDeleting(item)}
+                      >
+                        <Trash2 aria-hidden="true" />
+                      </Button>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
         </div>
+
+        <Paginator
+          page={list.page}
+          totalPages={list.totalPages}
+          total={list.total}
+          onPageChange={list.setPage}
+        />
       </ListState>
 
       <AchievementFormDialog
@@ -471,10 +407,10 @@ export default function AchievementsPage() {
         saving={saving}
         onDelete={(item) => {
           setFormOpen(false);
-          setDeleting({ id: item.id, title: item.title });
+          setDeleting(item);
         }}
         onImageSaved={() => {
-          void reload();
+          list.reload();
         }}
         onSubmit={submit}
       />
@@ -495,6 +431,6 @@ export default function AchievementsPage() {
         pending={removing}
         onConfirm={confirmDelete}
       />
-    </>
+    </div>
   );
 }

@@ -78,10 +78,10 @@ function sanitizeUploadSlug(rawId: string | undefined, fallback: string): string
     '/api/v1/upload/achievement',
     { preHandler: [blockUnauthorized(), adminOnly()] },
     async (req, reply) => {
-      const { id } = req.query as { id?: string };
-      const safeId = sanitizeUploadSlug(id, 'banner');
+      const { id, slug } = req.query as { id?: string; slug?: string };
+      const safeId = sanitizeUploadSlug(id || slug, 'banner');
 
-      return handleImageUpload(req, reply, (ext) => `achievements/${safeId}-${Date.now()}.${ext}`);
+      return handleImageUpload(req, reply, (ext) => `achievements/${safeId}-${randomUUID()}.${ext}`);
     },
   );
 

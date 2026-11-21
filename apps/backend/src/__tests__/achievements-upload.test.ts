@@ -220,6 +220,8 @@ describe('Achievements & Upload API integration', () => {
       payload: adminBody.payload,
     });
     expect(adminRes.statusCode).toBe(200);
-    expect(adminRes.json().data.key).toMatch(/^achievements\/ioai-2024-\d+\.webp$/);
+    expect(adminRes.json().data.key).toMatch(
+      /^achievements\/ioai-2024-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.webp$/i,
+    );
   });
 });

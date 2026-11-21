@@ -180,6 +180,12 @@ export const YearlyAchievementSchema = z.object({
   title: z.string(),
   award: z.string().optional(),
   year: z.number().int(),
+  isFeatured: z.boolean().optional(),
+  image: z.string().optional(),
+  imageConfig: ImageConfigSchema.optional(),
+  teamName: z.string().optional(),
+  members: z.array(z.string()).optional(),
+  description: z.string().optional(),
 });
 
 export const YearGroupSchema = z.object({
