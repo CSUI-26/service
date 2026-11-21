@@ -54,6 +54,7 @@ CSUI-ZenithService/
 │           ├── features/     # auth/, programs/, courses/, members/, achievements/
 │           ├── hooks/        # Shared React hooks
 │           └── lib/          # API client & utils
+│   └── website/              # READ-ONLY REFERENCE: Astro landing page submodule (CSUI-26/website) — DO NOT MODIFY
 ├── data/                     # Seed JSON datasets (academic, members, achievements)
 └── docs/                     # PRD & implementation plan
 ```
