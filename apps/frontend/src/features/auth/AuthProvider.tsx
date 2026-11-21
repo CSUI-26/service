@@ -26,32 +26,35 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setLoading(false);
   }, []);
 
-  const refresh = useCallback(async (retryCount = 0, seq?: number) => {
-    const currentSeq = seq ?? ++refreshSeqRef.current;
-    if (retryCount === 0) {
-      setLoading(true);
-    }
-    try {
-      const res = await api<{ data: AuthUser }>('/auth/me');
-      if (currentSeq !== refreshSeqRef.current) return;
-      setUser(res.data);
-      setError(null);
-    } catch (err) {
-      if (currentSeq !== refreshSeqRef.current) return;
-      // Retry once after a short delay to handle cookie race condition
-      if (retryCount < 1) {
-        await new Promise(resolve => setTimeout(resolve, 300));
+  const refresh = useCallback(async () => {
+    const currentSeq = ++refreshSeqRef.current;
+    const fetchSession = async (retryCount: number): Promise<void> => {
+      if (retryCount === 0) {
+        setLoading(true);
+      }
+      try {
+        const res = await api<{ data: AuthUser }>('/auth/me');
         if (currentSeq !== refreshSeqRef.current) return;
-        await refresh(retryCount + 1, currentSeq);
-        return;
+        setUser(res.data);
+        setError(null);
+      } catch (err) {
+        if (currentSeq !== refreshSeqRef.current) return;
+        // Retry once after a short delay to handle cookie race condition
+        if (retryCount < 1) {
+          await new Promise(resolve => setTimeout(resolve, 300));
+          if (currentSeq !== refreshSeqRef.current) return;
+          await fetchSession(retryCount + 1);
+          return;
+        }
+        setUser(null);
+        setError(err instanceof Error ? err.message : 'Sesi tidak valid');
+      } finally {
+        if (retryCount === 0 && currentSeq === refreshSeqRef.current) {
+          setLoading(false);
+        }
       }
-      setUser(null);
-      setError(err instanceof Error ? err.message : 'Sesi tidak valid');
-    } finally {
-      if (retryCount === 0 && currentSeq === refreshSeqRef.current) {
-        setLoading(false);
-      }
-    }
+    };
+    await fetchSession(0);
   }, []);
 
   useEffect(() => {

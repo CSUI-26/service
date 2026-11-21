@@ -1,7 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { ImageUploadEditor, renderCroppedWebp } from './ImageUploadEditor';
+import { ImageUploadEditor } from './ImageUploadEditor';
+import { renderCroppedWebp } from './imageCrop';
 import * as apiModule from '@/lib/api';
 
 vi.mock('@/lib/api', async (importOriginal) => {

@@ -40,6 +40,21 @@ function useDebouncedValue<T>(value: T, delay: number): T {
   return debounced;
 }
 
+function buildQueryString(
+  page: number,
+  pageSize: number,
+  filterKey: string,
+): string {
+  const params = new URLSearchParams({ page: String(page), limit: String(pageSize) });
+  const parsed = JSON.parse(filterKey) as Record<string, FilterValue>;
+  for (const [key, value] of Object.entries(parsed)) {
+    if (value !== undefined && value !== null && value !== '') {
+      params.set(key, String(value));
+    }
+  }
+  return params.toString();
+}
+
 export function useResourceList<T>({
   path,
   pageSize = 20,
@@ -49,7 +64,6 @@ export function useResourceList<T>({
   const [data, setData] = useState<T[]>([]);
   const [total, setTotal] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
-  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [page, setPage] = useState(1);
   const [reloadKey, setReloadKey] = useState(0);
@@ -63,26 +77,21 @@ export function useResourceList<T>({
     setPage(1);
   }
 
+  const query = buildQueryString(page, pageSize, debouncedFilterKey);
+  const requestKey = `${path}?${query}:${reloadKey}`;
+  const [fetchedKey, setFetchedKey] = useState('');
+  const loading = fetchedKey !== requestKey;
+
   useEffect(() => {
     const controller = new AbortController();
 
-    const params = new URLSearchParams({ page: String(page), limit: String(pageSize) });
-    const parsed = JSON.parse(debouncedFilterKey) as Record<string, FilterValue>;
-    for (const [key, value] of Object.entries(parsed)) {
-      if (value !== undefined && value !== null && value !== '') {
-        params.set(key, String(value));
-      }
-    }
-
-    setLoading(true);
-    setError(null);
-
-    api<ListResponse<T>>(`${path}?${params.toString()}`, { signal: controller.signal })
+    api<ListResponse<T>>(`${path}?${query}`, { signal: controller.signal })
       .then((response) => {
         if (controller.signal.aborted) return;
         setData(response.data);
         setTotal(response.total ?? response.data.length);
         setTotalPages(response.totalPages ?? 1);
+        setError(null);
         if (response.data.length === 0 && page > 1) {
           setPage(Math.max(1, response.totalPages ?? 1));
         }
@@ -92,11 +101,11 @@ export function useResourceList<T>({
         setError(err instanceof Error ? err.message : 'Failed memuat data');
       })
       .finally(() => {
-        if (!controller.signal.aborted) setLoading(false);
+        if (!controller.signal.aborted) setFetchedKey(requestKey);
       });
 
     return () => controller.abort();
-  }, [path, pageSize, page, debouncedFilterKey, reloadKey]);
+  }, [path, query, page, requestKey]);
 
   return {
     data,

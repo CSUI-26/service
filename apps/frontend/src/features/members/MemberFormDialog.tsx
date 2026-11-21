@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { useForm } from 'react-hook-form';
+import { useForm, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Loader2, Trash2 } from 'lucide-react';
 import { useState } from 'react';
@@ -110,11 +110,25 @@ export function MemberFormDialog({
     }
   };
   const {
+    control,
     register,
     handleSubmit,
     reset,
     formState: { errors },
   } = form;
+
+  const [
+    programIdValue,
+    instagramValue,
+    lineValue,
+    githubValue,
+    linkedinValue,
+    fotoUrlValue,
+    fotoConfigValue,
+  ] = useWatch({
+    control,
+    name: ['programId', 'instagram', 'line', 'github', 'linkedin', 'fotoUrl', 'fotoConfig'],
+  });
 
   useEffect(() => {
     if (open) reset(toFormValues(editing));
@@ -202,7 +216,7 @@ export function MemberFormDialog({
             <div className="space-y-2">
               <label className="text-sm font-medium" htmlFor="member-major">Study program</label>
               <Select
-                value={form.watch('programId') || ''}
+                value={programIdValue || ''}
                 onValueChange={(value) => form.setValue('programId', value ?? '', { shouldValidate: true })}
               >
                 <SelectTrigger id="member-major">
@@ -255,7 +269,7 @@ export function MemberFormDialog({
               id="member-instagram"
               label="Instagram"
               platform="instagram"
-              value={form.watch('instagram') ?? ''}
+              value={instagramValue ?? ''}
               onChange={(value) => form.setValue('instagram', value, { shouldValidate: true })}
               error={errors.instagram?.message}
               hint="Username or profile URL."
@@ -264,7 +278,7 @@ export function MemberFormDialog({
               id="member-line"
               label="LINE"
               platform="line"
-              value={form.watch('line') ?? ''}
+              value={lineValue ?? ''}
               onChange={(value) => form.setValue('line', value, { shouldValidate: true })}
               error={errors.line?.message}
             />
@@ -272,7 +286,7 @@ export function MemberFormDialog({
               id="member-github"
               label="GitHub"
               platform="github"
-              value={form.watch('github') ?? ''}
+              value={githubValue ?? ''}
               onChange={(value) => form.setValue('github', value, { shouldValidate: true })}
               error={errors.github?.message}
             />
@@ -280,7 +294,7 @@ export function MemberFormDialog({
               id="member-linkedin"
               label="LinkedIn"
               platform="linkedin"
-              value={form.watch('linkedin') ?? ''}
+              value={linkedinValue ?? ''}
               onChange={(value) => form.setValue('linkedin', value, { shouldValidate: true })}
               error={errors.linkedin?.message}
             />
@@ -292,7 +306,7 @@ export function MemberFormDialog({
           <ImageUploadEditor
             endpoint="/upload/avatar"
             uploadParams={editing?.npm ? { npm: editing.npm } : undefined}
-            value={{ url: form.watch('fotoUrl') ?? '', config: form.watch('fotoConfig') }}
+            value={{ url: fotoUrlValue ?? '', config: fotoConfigValue }}
             onChange={({ url, config }) => {
               form.setValue('fotoUrl', url, { shouldValidate: true });
               form.setValue('fotoConfig', config);

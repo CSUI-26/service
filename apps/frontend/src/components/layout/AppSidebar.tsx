@@ -40,28 +40,27 @@ function initials(name?: string): string {
 export function AppSidebar() {
   const { pathname } = useLocation();
   const { user, logout } = useAuth();
-  const [photoUrl, setPhotoUrl] = useState('');
+  const [photoState, setPhotoState] = useState<{ npm: string; url: string }>({ npm: '', url: '' });
+  const photoUrl = user?.npm && photoState.npm === user.npm ? photoState.url : '';
 
   useEffect(() => {
-    if (!user?.npm) {
-      setPhotoUrl('');
-      return;
-    }
+    const npm = user?.npm;
+    if (!npm) return;
     let mounted = true;
     membersApi
-      .get(user.npm)
+      .get(npm)
       .then((res) => {
-        if (mounted) setPhotoUrl(res.data.foto?.url ?? '');
+        if (mounted) setPhotoState({ npm, url: res.data.foto?.url ?? '' });
       })
       .catch(() => {
-        if (mounted) setPhotoUrl('');
+        if (mounted) setPhotoState({ npm, url: '' });
       });
 
     const handleProfileUpdated = (event: Event) => {
       const detail = (event as CustomEvent<{ npm?: string; fotoUrl?: string }>).detail;
-      if (detail?.npm && detail.npm !== user.npm) return;
+      if (detail?.npm && detail.npm !== npm) return;
       if (typeof detail?.fotoUrl === 'string') {
-        setPhotoUrl(detail.fotoUrl);
+        setPhotoState({ npm, url: detail.fotoUrl });
       }
     };
     window.addEventListener('zenith:profile-updated', handleProfileUpdated);
