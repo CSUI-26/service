@@ -162,6 +162,15 @@ export default function AchievementsPage() {
     setRemoving(true);
     try {
       await achievementsApi.remove(target.id);
+      setData((prev) => ({
+        latestAchievements: prev.latestAchievements.filter((item) => item.id !== target.id),
+        yearlyAchievementsByYear: prev.yearlyAchievementsByYear
+          .map((group) => ({
+            ...group,
+            items: group.items.filter((item) => item.id !== target.id),
+          }))
+          .filter((group) => group.items.length > 0),
+      }));
       setDeleting(null);
       toast.success('Achievement deleted');
       reload();
