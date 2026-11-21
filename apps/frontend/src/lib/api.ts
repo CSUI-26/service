@@ -6,7 +6,12 @@ export async function api<T>(path: string, opts: RequestInit = {}): Promise<T> {
     headers.set('Content-Type', 'application/json');
   }
 
-  const res = await fetch(`${BASE}${path}`, { credentials: 'include', ...opts, headers });
+  const res = await fetch(`${BASE}${path}`, {
+    credentials: 'include',
+    cache: 'no-store',
+    ...opts,
+    headers,
+  });
 
   if (!res.ok) {
     let message = res.statusText;

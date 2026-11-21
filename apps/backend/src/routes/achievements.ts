@@ -15,7 +15,12 @@ export async function achievementRoutes(fastify: FastifyInstance) {
       limit?: string;
     };
 
-    reply.header('Cache-Control', 'public, max-age=60, stale-while-revalidate=300');
+    const isAuthedRequest = Boolean(req.headers.cookie || req.headers.authorization);
+    reply.header('Vary', 'Cookie, Authorization');
+    reply.header(
+      'Cache-Control',
+      isAuthedRequest ? 'private, no-store' : 'public, max-age=60, stale-while-revalidate=300',
+    );
 
     if (query.format === 'grouped') {
       return { data: await repo.getGroupedAchievements() };
@@ -49,7 +54,12 @@ export async function achievementRoutes(fastify: FastifyInstance) {
     const { id } = req.params as { id: string };
     const achievement = await repo.getAchievementById(id);
     if (!achievement) return reply.code(404).send({ error: 'Achievement not found' });
-    reply.header('Cache-Control', 'public, max-age=60, stale-while-revalidate=300');
+    const isAuthedRequest = Boolean(req.headers.cookie || req.headers.authorization);
+    reply.header('Vary', 'Cookie, Authorization');
+    reply.header(
+      'Cache-Control',
+      isAuthedRequest ? 'private, no-store' : 'public, max-age=60, stale-while-revalidate=300',
+    );
     return { data: achievement };
   });
 

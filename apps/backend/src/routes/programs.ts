@@ -4,8 +4,13 @@ import * as repo from '../db/repository.js';
 import { ProgramCreateSchema, ProgramUpdateSchema } from '../schemas/index.js';
 
 export async function programRoutes(fastify: FastifyInstance) {
-  fastify.get('/api/v1/programs', async (_req, reply) => {
-    reply.header('Cache-Control', 'public, max-age=60, stale-while-revalidate=300');
+  fastify.get('/api/v1/programs', async (req, reply) => {
+    const isAuthedRequest = Boolean(req.headers.cookie || req.headers.authorization);
+    reply.header('Vary', 'Cookie, Authorization');
+    reply.header(
+      'Cache-Control',
+      isAuthedRequest ? 'private, no-store' : 'public, max-age=60, stale-while-revalidate=300',
+    );
     return { data: await repo.getAllPrograms() };
   });
 
@@ -13,13 +18,23 @@ export async function programRoutes(fastify: FastifyInstance) {
     const { id } = req.params as { id: string };
     const program = await repo.getProgramById(id);
     if (!program) return reply.code(404).send({ error: 'Program not found' });
-    reply.header('Cache-Control', 'public, max-age=60, stale-while-revalidate=300');
+    const isAuthedRequest = Boolean(req.headers.cookie || req.headers.authorization);
+    reply.header('Vary', 'Cookie, Authorization');
+    reply.header(
+      'Cache-Control',
+      isAuthedRequest ? 'private, no-store' : 'public, max-age=60, stale-while-revalidate=300',
+    );
     return { data: program };
   });
 
   fastify.get('/api/v1/semesters', async (req, reply) => {
     const { program } = req.query as { program?: string };
-    reply.header('Cache-Control', 'public, max-age=60, stale-while-revalidate=300');
+    const isAuthedRequest = Boolean(req.headers.cookie || req.headers.authorization);
+    reply.header('Vary', 'Cookie, Authorization');
+    reply.header(
+      'Cache-Control',
+      isAuthedRequest ? 'private, no-store' : 'public, max-age=60, stale-while-revalidate=300',
+    );
     return { data: await repo.getAllSemesters(program) };
   });
 
