@@ -81,27 +81,26 @@ export function MemberFormDialog({
     defaultValues: toFormValues(editing),
   });
 
-  const [roleValue, setRoleValue] = useState<string>(editing?.role || 'user');
+  const [roleOverride, setRoleOverride] = useState<{ npm: string; role: string } | null>(null);
   const [savingRole, setSavingRole] = useState(false);
   const [programs, setPrograms] = useState<Program[]>([]);
+
+  const roleValue =
+    editing && roleOverride?.npm === editing.npm
+      ? roleOverride.role
+      : editing?.role || 'user';
 
   useEffect(() => {
     if (!open) return;
     programsApi.list().then((res) => setPrograms(res.data)).catch(() => {});
   }, [open]);
 
-  useEffect(() => {
-    if (open && editing) {
-      setRoleValue(editing.role || 'user');
-    }
-  }, [open, editing]);
-
   const handleRoleChange = async (newRole: string) => {
     if (!editing || !isAdmin) return;
     setSavingRole(true);
     try {
       await membersApi.updateRole(editing.npm, newRole as 'user' | 'admin');
-      setRoleValue(newRole);
+      setRoleOverride({ npm: editing.npm, role: newRole });
       toast.success(`Role changed to ${newRole}`);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Failed to change role');

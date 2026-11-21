@@ -14,7 +14,7 @@ export default defineConfig({
     css: false,
   },
   resolve: {
-    alias: { '@': path.resolve(__dirname, './src') },
+    alias: { '@': path.resolve(import.meta.dirname, './src') },
   },
   server: {
     host: '0.0.0.0',
