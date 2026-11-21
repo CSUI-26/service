@@ -23,9 +23,12 @@ describe('findNavItem', () => {
     expect(findNavItem('/my-profile')?.label).toBe('Profilku');
     expect(findNavItem('/my-profile/edit')?.label).toBe('Edit Profil');
     expect(findNavItem('/directory')?.label).toBe('Teman Angkatan');
+    expect(findNavItem('/requests')).toMatchObject({ label: 'Aspirasi & Request' });
+    expect(findNavItem('/requests')?.requireAdmin).toBeUndefined();
     expect(findNavItem('/courses')?.label).toBe('Courses');
     expect(findNavItem('/gallery')).toMatchObject({ label: 'Gallery', requireAdmin: true });
     expect(findNavItem('/activities')).toMatchObject({ label: 'Activities', requireAdmin: true });
+    expect(findNavItem('/admin/requests')).toMatchObject({ label: 'Requests (Admin)', requireAdmin: true });
     expect(findNavItem('/halaman-tidak-ada')).toBeUndefined();
   });
 });

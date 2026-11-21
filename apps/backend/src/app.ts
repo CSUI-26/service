@@ -13,6 +13,7 @@ import { memberRoutes } from './routes/members.js';
 import { achievementRoutes } from './routes/achievements.js';
 import { galleryRoutes } from './routes/gallery.js';
 import { activityRoutes } from './routes/activities.js';
+import { requestRoutes } from './routes/requests.js';
 import { uploadRoutes } from './routes/upload.js';
 
 export function createApp() {
@@ -68,6 +69,7 @@ export function createApp() {
   fastify.register(achievementRoutes);
   fastify.register(galleryRoutes);
   fastify.register(activityRoutes);
+  fastify.register(requestRoutes);
   fastify.register(uploadRoutes);
   fastify.register(authRoutes);
 

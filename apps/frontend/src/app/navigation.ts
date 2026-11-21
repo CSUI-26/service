@@ -3,6 +3,8 @@ import {
   Calendar,
   GraduationCap,
   Images,
+  Inbox,
+  MessageSquarePlus,
   Pencil,
   Trophy,
   User,
@@ -39,6 +41,13 @@ export const navItems: NavItem[] = [
     label: 'Teman Angkatan',
     description: 'Jelajahi direktori Zenith 2026',
     icon: Users,
+    end: true,
+  },
+  {
+    to: '/requests',
+    label: 'Aspirasi & Request',
+    description: 'Usul konten, feedback & bantuan',
+    icon: MessageSquarePlus,
     end: true,
   },
   {
@@ -81,6 +90,13 @@ export const navItems: NavItem[] = [
     label: 'Activities',
     description: 'Manage cohort activities',
     icon: Calendar,
+    requireAdmin: true,
+  },
+  {
+    to: '/admin/requests',
+    label: 'Requests (Admin)',
+    description: 'Triage member requests & threads',
+    icon: Inbox,
     requireAdmin: true,
   },
 ];

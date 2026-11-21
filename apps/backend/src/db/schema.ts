@@ -1,7 +1,7 @@
 import { sql } from 'drizzle-orm';
 import { pgTable, text, serial, integer, boolean, jsonb, unique, index, check } from 'drizzle-orm/pg-core';
 import { relations } from 'drizzle-orm';
-import type { ImageConfig } from '@zenith/shared';
+import type { ImageConfig, RequestMetadata } from '@zenith/shared';
 
 export const programs = pgTable('programs', {
   id: text('id').primaryKey(),
@@ -138,5 +138,56 @@ export const membersRelations = relations(members, ({ one }) => ({
   program: one(programs, {
     fields: [members.programId],
     references: [programs.id],
+  }),
+}));
+
+export const requestThreads = pgTable('request_threads', {
+  id: serial('id').primaryKey(),
+  authorNpm: text('author_npm').notNull().references(() => members.npm, { onDelete: 'cascade' }),
+  category: text('category').notNull().default('content'),
+  title: text('title').notNull(),
+  description: text('description').notNull(),
+  status: text('status').notNull().default('open'),
+  image: jsonb('image').$type<{ url: string; config?: ImageConfig } | null>(),
+  metadata: jsonb('metadata').$type<RequestMetadata>().notNull().default(sql`'{}'::jsonb`),
+  createdAt: integer('created_at').notNull().default(sql`extract(epoch from now())::int`),
+  updatedAt: integer('updated_at').notNull().default(sql`extract(epoch from now())::int`),
+}, (table) => ({
+  authorIdx: index('idx_request_threads_author').on(table.authorNpm),
+  statusIdx: index('idx_request_threads_status').on(table.status),
+  categoryIdx: index('idx_request_threads_category').on(table.category),
+  updatedAtIdx: index('idx_request_threads_updated_at').on(table.updatedAt),
+}));
+
+export const requestMessages = pgTable('request_messages', {
+  id: serial('id').primaryKey(),
+  threadId: integer('thread_id').notNull().references(() => requestThreads.id, { onDelete: 'cascade' }),
+  authorNpm: text('author_npm').notNull().references(() => members.npm, { onDelete: 'cascade' }),
+  authorRole: text('author_role').notNull().default('user'),
+  body: text('body').notNull(),
+  image: jsonb('image').$type<{ url: string; config?: ImageConfig } | null>(),
+  createdAt: integer('created_at').notNull().default(sql`extract(epoch from now())::int`),
+  updatedAt: integer('updated_at').notNull().default(sql`extract(epoch from now())::int`),
+}, (table) => ({
+  threadIdx: index('idx_request_messages_thread').on(table.threadId, table.createdAt),
+  authorIdx: index('idx_request_messages_author').on(table.authorNpm),
+}));
+
+export const requestThreadsRelations = relations(requestThreads, ({ one, many }) => ({
+  author: one(members, {
+    fields: [requestThreads.authorNpm],
+    references: [members.npm],
+  }),
+  messages: many(requestMessages),
+}));
+
+export const requestMessagesRelations = relations(requestMessages, ({ one }) => ({
+  thread: one(requestThreads, {
+    fields: [requestMessages.threadId],
+    references: [requestThreads.id],
+  }),
+  author: one(members, {
+    fields: [requestMessages.authorNpm],
+    references: [members.npm],
   }),
 }));
