@@ -68,7 +68,7 @@ describe('MyProfilePage and EditProfilePage', () => {
     cleanup();
   });
 
-  it('renders dedicated preview showcase card with locked photo badge and clean Bahasa Indonesia copy', async () => {
+  it('renders dedicated preview showcase card with static photo and clean Bahasa Indonesia copy', async () => {
     render(
       <MemoryRouter initialEntries={['/my-profile']}>
         <Routes>
@@ -78,7 +78,7 @@ describe('MyProfilePage and EditProfilePage', () => {
     );
 
     expect(await screen.findByText('Baruna Fandhika')).toBeInTheDocument();
-    expect(screen.getByText('Foto Terkunci')).toBeInTheDocument();
+    expect(screen.queryByText('Foto Terkunci')).not.toBeInTheDocument();
     expect(screen.getByText('Frontend Developer')).toBeInTheDocument();
     expect(screen.getByText('UI/UX Design')).toBeInTheDocument();
 

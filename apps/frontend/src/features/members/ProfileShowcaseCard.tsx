@@ -1,10 +1,8 @@
-import { useEffect, useRef, useState } from 'react';
 import {
   AtSign,
   Briefcase,
   Code2,
   GraduationCap,
-  Lock,
   Mail,
   MessageCircle,
   Quote,
@@ -51,28 +49,6 @@ function formatSocialHandle(platform: SocialPlatform, raw?: string): string {
 }
 
 export function ProfileShowcaseCard({ member, isOwner = false }: ProfileShowcaseCardProps) {
-  const [showLockHint, setShowLockHint] = useState(false);
-  const timerRef = useRef<number | null>(null);
-
-  useEffect(() => {
-    return () => {
-      if (timerRef.current !== null) {
-        window.clearTimeout(timerRef.current);
-      }
-    };
-  }, []);
-
-  const triggerLockHint = () => {
-    setShowLockHint(true);
-    if (timerRef.current !== null) {
-      window.clearTimeout(timerRef.current);
-    }
-    timerRef.current = window.setTimeout(() => {
-      setShowLockHint(false);
-      timerRef.current = null;
-    }, 1600);
-  };
-
   const cfg = member.foto?.config;
   const x = cfg?.x ?? 50;
   const y = cfg?.y ?? 50;
@@ -109,18 +85,14 @@ export function ProfileShowcaseCard({ member, isOwner = false }: ProfileShowcase
   return (
     <div className="surface-card rounded-3xl p-5 shadow-xl sm:p-8">
       <div className="grid items-start gap-6 md:grid-cols-[300px_minmax(0,1fr)] lg:grid-cols-[340px_minmax(0,1fr)]">
-        <div
-          onPointerDown={triggerLockHint}
-          style={{ touchAction: 'pan-y' }}
-          className="relative aspect-square w-full overflow-hidden rounded-2xl border border-border bg-muted select-none shadow-lg"
-        >
+        <div className="relative aspect-square w-full overflow-hidden rounded-2xl border border-border bg-muted shadow-lg">
           {member.foto?.url ? (
             <img
               src={member.foto.url}
               alt={member.name || 'Foto profil'}
               draggable={false}
               style={imgStyle}
-              className="size-full object-cover transition-transform duration-150 motion-reduce:transition-none"
+              className="size-full object-cover"
             />
           ) : (
             <div className="flex size-full flex-col items-center justify-center gap-2 p-6 text-center text-muted-foreground">
@@ -128,26 +100,6 @@ export function ProfileShowcaseCard({ member, isOwner = false }: ProfileShowcase
               <span className="text-xs">Belum ada foto profil</span>
             </div>
           )}
-
-          <div className="absolute top-3 left-3 flex items-center">
-            <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-black/80 px-3 py-1 text-[11px] font-medium text-white backdrop-blur-md">
-              <Lock className="size-3 text-emerald-400" aria-hidden="true" />
-              <span>Foto Terkunci</span>
-            </span>
-          </div>
-
-          {showLockHint ? (
-            <output className="pointer-events-none absolute inset-0 flex items-center justify-center bg-black/70 p-4 text-center backdrop-blur-xs">
-              <div className="flex flex-col items-center gap-1.5 rounded-xl border border-primary/50 bg-background/95 px-3.5 py-2.5 text-xs font-medium text-foreground shadow-lg">
-                <Lock className="size-4 text-emerald-400" aria-hidden="true" />
-                <span>
-                  {isOwner
-                    ? 'Foto sedang dikunci. Buka menu Edit Profil untuk mengatur posisi foto.'
-                    : 'Foto dikunci agar nyaman saat digeser.'}
-                </span>
-              </div>
-            </output>
-          ) : null}
         </div>
 
         <div className="flex min-w-0 flex-col justify-between space-y-5">
@@ -239,7 +191,7 @@ export function ProfileShowcaseCard({ member, isOwner = false }: ProfileShowcase
                     key={item.platform}
                     type="button"
                     onClick={() => openSocialLink(item.platform, item.value)}
-                    className="surface-elevated inline-flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-medium text-foreground transition hover:border-primary/60"
+                    className="surface-elevated inline-flex cursor-pointer items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-medium text-foreground transition hover:border-primary/60"
                   >
                     <Icon className="size-3.5 shrink-0 text-primary" aria-hidden="true" />
                     <span className="font-mono">{handle || item.label}</span>
