@@ -1,209 +1,462 @@
-# CSUI Zenith Frontend UI/UX Rebuild (`@zenith/frontend`) Implementation Plan
+# Gallery & Activities CRUD Implementation Plan (`@zenith/shared`, `@zenith/backend`, `@zenith/frontend`)
 
 > **For agentic workers:** Implement this plan task-by-task in sequential order. Every task modifies **at most 2 files** and concludes with an explicit, deterministic verification command. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Rebuild `@zenith/frontend` (`apps/frontend`) to match the [`docs/PRD.md`](file:///home/antigravity/VickyIbr/CSUI26/docs/PRD.md) specification and the validated [`docs/index.html`](file:///home/antigravity/VickyIbr/CSUI26/docs/index.html) taste & UX prototype:
-1. Dark-first Zenith Obsidian theme (`#05060d` canvas, `#0c101d` surface, `#12182b` elevated, `#3b82f6` cobalt primary, ambient cobalt/crimson aura) with light-mode support.
-2. Sticky overflow-free header featuring the italic **`ZENITH`** wordmark on the left (no left logo icon) and an **icon-only Theme Toggle** placed to the left of a **right-aligned Dropdown Navigation Menu** on the right.
-3. Separate **Preview Profile (`/my-profile` — "Profilku")**, **Edit Profile (`/my-profile/edit` — "Edit Profil")**, and **Cohort Directory (`/directory` — "Teman Angkatan")** pages with warm, position-agnostic Bahasa Indonesia tips and zero developer jargon.
-4. Client-side **Lock Photo** protection in `ImageUploadEditor` and `ProfileShowcaseCard` (`touch-action: pan-y` by default so scrolling never shifts the crop or swipes photos).
-5. Simplified, utilitarian Radix/shadcn primitive `Table` views for Admin routes (`/programs`, `/courses`, `/members`, `/achievements`).
+**Goal:** Implement full-stack CRUD for the `gallery_items` and `activities` tables specified in [`docs/PRD.md`](file:///home/antigravity/VickyIbr/CSUI26/docs/PRD.md), achieving complete backend API, S3 upload, seed script, and admin dashboard parity with [`https://zenith.csui.dev`](https://zenith.csui.dev):
+1. Shared Zod v4 schemas and DTO types (`GalleryCategorySchema`, `GalleryItemSchema`, `PublicGalleryResponseSchema`, `ActivitySchema`) in `@zenith/shared`.
+2. PostgreSQL tables (`gallery_items` and `activities`), Drizzle SQL migration (`0003_gallery_and_activities.sql`), 60s TTL cached repositories, Fastify REST routes (`/api/v1/gallery`, `/api/v1/activities`), and S3 multipart upload endpoints (`/api/v1/upload/gallery`, `/api/v1/upload/activity`) in `@zenith/backend`.
+3. Seed JSON datasets (`data/gallery.json`, `data/activities.json`) and S3 media migration seeders in `apps/backend/src/db/seed.ts`.
+4. Utilitarian admin CRUD pages (`/gallery` and `/activities`) inside `AdminRoute` in `@zenith/frontend` with dynamic aspect-ratio presets (`4:3`, `4:7`, `16:9`) and `Lock Photo` gesture protection.
 
-**Tech Stack:** React 19, React Router (`react-router`), Vite, Tailwind CSS v4, `radix-ui`, `shadcn/ui`, `lucide-react`, `next-themes`, Vitest, Oxlint.
+**Tech Stack:** pnpm Workspaces, Turborepo, Fastify v5, Drizzle ORM (`postgres`), PostgreSQL 16, Zod v4, React 19, React Router (`react-router`), Vite, Tailwind CSS v4, `radix-ui`, `shadcn/ui`, `lucide-react`, Vitest, Oxlint.
 
 **References:**
 - Product Requirements: [`docs/PRD.md`](file:///home/antigravity/VickyIbr/CSUI26/docs/PRD.md)
-- Interactive UX & Visual Reference: [`docs/index.html`](file:///home/antigravity/VickyIbr/CSUI26/docs/index.html)
+- Frontend Visual & Anti-Slop System: [`apps/frontend/DESIGN.md`](file:///home/antigravity/VickyIbr/CSUI26/apps/frontend/DESIGN.md)
 
 ---
 
 ## Global Principles (`writing-plans`, `ponytail`, `ui-ux-pro-max`, `anti-slop`)
 
 1. **Native Capabilities First (`ponytail`):**
-   - Install **zero** new third-party npm packages. Use existing workspace primitives (`radix-ui`, `shadcn/ui` components in `apps/frontend/src/components/ui/*`, `lucide-react`, `next-themes`, `react-router`) and native browser APIs (`PointerEvent`, CSS `touch-action: pan-y`, `HTMLCanvasElement`, `CustomEvent`).
-2. **Design Tokens & Typography Scale (`ui-ux-pro-max` & [`docs/index.html`](file:///home/antigravity/VickyIbr/CSUI26/docs/index.html)):**
-   - **Dark Default (`.dark`):** `--background: #05060d`, `--foreground: #f8fafc`, `--card: #0c101d`, `--muted: #12182b`, `--muted-foreground: #94a3b8`, `--primary: #3b82f6`, `--border: rgba(255, 255, 255, 0.10)`.
-   - **Light Toggle (`:root`):** `--background: #f8fafc`, `--foreground: #0f172a`, `--card: #ffffff`, `--muted: #f1f5f9`, `--muted-foreground: #475569`, `--primary: #2563eb`, `--border: #e2e8f0`.
+   - Install **zero** new third-party dependencies.
+   - Use native Fastify plugins (`@fastify/multipart`), native Drizzle ORM queries, existing in-memory `createTtlCache` (`apps/backend/src/lib/cache.js`), native browser `HTMLCanvasElement` WebP encoding (`renderCroppedWebp`), and existing `radix-ui` / `shadcn/ui` workspace components (`Table`, `Select`, `Field`, `Dialog`, `Badge`, `Button`).
+2. **Design Tokens & Typography Scale (`ui-ux-pro-max` & [`apps/frontend/DESIGN.md`](file:///home/antigravity/VickyIbr/CSUI26/apps/frontend/DESIGN.md)):**
+   - **Dark Default (`.dark` — Zenith Obsidian):** `--background: #05060d`, `--foreground: #f8fafc`, `--card: #0c101d`, `--muted: #12182b`, `--muted-foreground: #94a3b8`, `--primary: #3b82f6`, `--border: rgba(255, 255, 255, 0.10)`.
+   - **Light Mode (`:root` — Slate High-Contrast):** `--background: #f8fafc`, `--foreground: #0f172a`, `--card: #ffffff`, `--muted: #f1f5f9`, `--muted-foreground: #475569`, `--primary: #2563eb`, `--border: #e2e8f0`.
    - **Typography Scale:**
-     - Brand Wordmark (`.zenith-wordmark`): `font-style: italic; font-weight: 850; letter-spacing: -0.04em` with blue-white-red gradient clip.
-     - Showcase Display Name: `text-2xl sm:text-4xl font-extrabold tracking-tight leading-tight`
-     - Page Heading: `text-xl sm:text-2xl font-bold tracking-tight`
-     - Section / Card Title: `text-sm sm:text-base font-bold`
-     - Body Copy: `text-xs sm:text-sm leading-relaxed`
-     - Numerals & Codes (NPM, SKS, year, zoom/rotation): `font-mono tabular-nums` (`JetBrains Mono`)
-3. **Anti-Slop Gates (`miqdadbadjuber/anti-slop`):**
-   - **R-01 (Purposeful Surfaces):** Use `.zenith-aura` ambient radial backdrop and `.surface-card` glass panels on member showcase views; keep admin tables flat and high-density.
-   - **R-02 (Zero Em-Dashes & Buzzwords):** Never use `—` or `–` in UI copy.
-   - **R-03 (Accessible Affordances & Motion):** Every icon-only button (`ThemeToggle`, table `Edit`/`Delete`) must include an explicit `aria-label`. Transitions stay within `150ms–200ms` with `prefers-reduced-motion` support.
-   - **R-04 (Zero Dev-Only or Directional Copy):** Never render developer-facing strings (such as `"NPM & Role locked by Auth"`, `"PUT /api/v1/members/me"`, `"AdminRoute"`, `"touch-action: pan-y"`, `"1:1 WebP"`) or position-dependent instructions (such as `"Klik tombol di kanan!"` or `"di atas"`). Reference buttons by their label (**Edit Profilku**, **Buka Kunci Foto**).
-4. **Atomic Tasks (Max 2 Files per Task):**
-   - Each task below modifies at most 2 files and ends with a deterministic verification command.
+     - Page Title (`PageHeader`): `text-xl sm:text-2xl font-bold tracking-tight` (`Geist Variable`)
+     - Section / Dialog Heading: `text-sm sm:text-base font-bold`
+     - Table Cell Body: `text-xs sm:text-sm leading-relaxed` (`Inter`)
+     - Hint / Caption / Alt Preview: `text-xs text-muted-foreground`
+     - Slug IDs, Position Orders & Aspect Ratios: `font-mono tabular-nums text-xs` (`JetBrains Mono`)
+3. **Anti-Slop Gates ([`miqdadbadjuber/anti-slop`](https://github.com/miqdadbadjuber/anti-slop)):**
+   - **R-01 (Purposeful Surfaces):** Keep `/gallery` and `/activities` admin views flat, compact, and scannable using `Table` primitives without decorative hero banners or marketing fluff.
+   - **R-02 (Direct, Non-Dev Copywriting):** Zero em-dashes (`—`) or en-dashes (`–`) in UI copy. Zero corporate buzzwords ("seamless", "elevate", "empower", "unlock", "robust"). Use direct English labels (`Add gallery item`, `Edit activity`, `Delete`).
+   - **R-03 (Accessible Affordances & Motion):** Every icon-only action button (`Edit`, `Delete`, `Reset filters`) must have an explicit `aria-label`. Transitions stay within `150ms–200ms` with `prefers-reduced-motion` safeguards.
+   - **R-04 (Code Hygiene):** Zero literal hex colors in `.tsx` files, zero empty `catch` blocks, and zero `window.confirm` calls (always use `ConfirmDialog`).
+4. **Atomic Sequential Execution (Max 2 Files per Task):**
+   - Each task below touches **at most 2 files** and includes a deterministic verification command.
 
 ---
 
 ## File Map
 
 - **Modify:**
-  - `apps/frontend/DESIGN.md` — Update tokens, typography, header layout, and anti-slop rules to match `docs/index.html`.
-  - `apps/frontend/src/index.css` — Add `.dark` Zenith Obsidian palette (`#05060d`, `#0c101d`, `#12182b`, `#3b82f6`) and `.zenith-aura` / `.zenith-wordmark` / `.surface-card` / `.surface-elevated` utilities.
-  - `apps/frontend/src/app/providers.tsx` — Switch `ThemeProvider` default theme to `"dark"`.
-  - `apps/frontend/src/app/navigation.ts` — Add `/my-profile` ("Profilku"), `/my-profile/edit` ("Edit Profil"), `/directory` ("Teman Angkatan"), and admin routes with subtitle descriptions.
-  - `apps/frontend/src/app/navigation.test.ts` — Update unit tests for the new route table.
-  - `apps/frontend/src/components/layout/AppHeader.tsx` — Left `ZENITH` wordmark (no logo) + right icon-only `ThemeToggle` (left of dropdown) + right-aligned `DropdownMenu` navigation.
-  - `apps/frontend/src/components/layout/AppLayout.tsx` — Streamlined top-header layout with `.zenith-aura` backdrop and overflow-safe `max-w-6xl` container.
-  - `apps/frontend/src/components/patterns/ImageUploadEditor.tsx` — Implement **Lock Photo** state (`isLocked`, `touch-action: pan-y`, **Buka Kunci Foto / Kunci Foto** toggle button, non-directional lock shield toast, auto-lock on save).
-  - `apps/frontend/src/components/patterns/ImageUploadEditor.test.tsx` — Unit tests for Lock Photo default lock, blocked pointer drag, unlock editing, and auto-lock on commit.
-  - `apps/frontend/src/features/members/MyProfilePage.tsx` — Dedicated Preview Profile page ("Profilku") with fun Bahasa Indonesia banner and `ProfileShowcaseCard`.
-  - `apps/frontend/src/app/router.tsx` — Register `/my-profile/edit` (`EditProfilePage`) and `/directory` (`CohortDirectoryPage`) inside `ProtectedRoute`.
-  - `apps/frontend/src/features/programs/ProgramsPage.tsx` — Simplify into a compact primitive `Table`.
-  - `apps/frontend/src/features/courses/CoursesPage.tsx` — Simplify into a compact primitive `Table`.
-  - `apps/frontend/src/features/members/MembersPage.tsx` — Simplify admin member directory into a compact primitive `Table`.
+  - `packages/shared/src/index.ts` — Add `GalleryCategorySchema`, `GalleryItem*Schema`, `PublicGalleryResponseSchema`, `Activity*Schema`, and exported DTO types.
+  - `apps/backend/src/db/schema.ts` — Add `galleryItems` (`gallery_items`) and `activities` (`activities`) Drizzle table definitions.
+  - `apps/backend/drizzle/meta/_journal.json` — Register migration `0003_gallery_and_activities`.
+  - `apps/backend/src/db/repository.ts` — Re-export `repositories/gallery.js` and `repositories/activities.js`.
+  - `apps/backend/src/app.ts` — Register `galleryRoutes` and `activityRoutes`.
+  - `apps/backend/src/routes/upload.ts` — Add `POST /api/v1/upload/gallery` and `POST /api/v1/upload/activity`.
+  - `apps/backend/src/db/seed.ts` — Add `seedGallery()` and `seedActivities()`.
+  - `apps/frontend/src/lib/api.ts` — Extend `UploadEndpoint` union in `uploadMedia` with `'/upload/gallery' | '/upload/activity'`.
+  - `apps/frontend/src/components/patterns/ImageUploadEditor.tsx` — Support `'/upload/gallery' | '/upload/activity'` and configurable `defaultAspect` prop (`'1:1' | '4:3' | '4:7' | '16:9'`).
+  - `apps/frontend/src/app/router.tsx` — Register `/gallery` and `/activities` inside `AdminRoute`.
+  - `apps/frontend/src/app/navigation.ts` — Add `Gallery` and `Activities` items under the Admin dropdown section.
+  - `apps/frontend/src/app/navigation.test.ts` — Add route matching assertions for `/gallery` and `/activities`.
 - **Create:**
-  - `apps/frontend/src/features/members/ProfileShowcaseCard.tsx` — Reusable social/e-commerce showcase card with locked 1:1 photo stage, quote callout, interest pills, and platform-icon social buttons.
-  - `apps/frontend/src/features/members/EditProfilePage.tsx` — Dedicated Edit Profile page (`/my-profile/edit`) with 3 fun Bahasa Indonesia tips cards + photo crop studio + profile form.
-  - `apps/frontend/src/features/members/CohortDirectoryPage.tsx` — Dedicated Cohort Directory page (`/directory`) with fun Bahasa Indonesia guide, search/prodi filter pills, and classmate preview dialog.
-  - `apps/frontend/src/features/members/MyProfilePage.test.tsx` — Integration tests for Preview Profile, Edit Profile tips, and anti-slop copy checks.
-  - `apps/frontend/src/features/members/MembersPage.test.tsx` — Unit tests for the simplified admin members table.
+  - `apps/backend/drizzle/0003_gallery_and_activities.sql` — SQL DDL for `gallery_items`, `activities`, and indexes.
+  - `apps/backend/src/__tests__/gallery-activities-schema.test.ts` — Unit tests for Zod contracts and Drizzle columns.
+  - `apps/backend/src/db/repositories/gallery.ts` — CRUD + `getGroupedGallery()` with 60s `createTtlCache`.
+  - `apps/backend/src/db/repositories/activities.ts` — CRUD + 60s `createTtlCache` for unfiltered list.
+  - `apps/backend/src/routes/gallery.ts` — Fastify routes for `/api/v1/gallery` and `/api/v1/gallery/:id`.
+  - `apps/backend/src/routes/activities.ts` — Fastify routes for `/api/v1/activities` and `/api/v1/activities/:id`.
+  - `apps/backend/src/__tests__/gallery-activities-api.test.ts` — Integration tests for gallery & activities routes, auth boundaries, caching headers, and S3 upload endpoints.
+  - `data/gallery.json` — Seed dataset for `zenith.csui.dev` gallery photos, mascot heroes, and homepage highlights.
+  - `data/activities.json` — Seed dataset for `zenith.csui.dev` cohort activities (`DDP0`, `PKKMB`, `PSAF`, `PMB`).
+  - `apps/frontend/src/features/gallery/api.ts` — Frontend API client for `/api/v1/gallery`.
+  - `apps/frontend/src/features/gallery/schema.ts` — Form schema, slug helper, and category aspect-ratio presets.
+  - `apps/frontend/src/features/gallery/GalleryFormDialog.tsx` — Modal dialog with `ImageUploadEditor` and dynamic aspect ratio (`4:3`, `4:7`, `16:9`).
+  - `apps/frontend/src/features/gallery/GalleryPage.tsx` — Utilitarian admin table with category/featured filters and keyboard shortcuts (`n`, `/`).
+  - `apps/frontend/src/features/activities/api.ts` — Frontend API client for `/api/v1/activities`.
+  - `apps/frontend/src/features/activities/schema.ts` — Form schema and payload mapper for activities.
+  - `apps/frontend/src/features/activities/ActivityFormDialog.tsx` — Modal dialog for creating/editing activities with `16:9` `ImageUploadEditor`.
+  - `apps/frontend/src/features/activities/ActivitiesPage.tsx` — Utilitarian admin table for cohort activities.
+  - `apps/frontend/src/features/gallery/GalleryAndActivitiesPage.test.tsx` — Component & anti-slop unit tests for `GalleryPage` and `ActivitiesPage`.
 
 ---
 
-### Task 1: Align `DESIGN.md` & `index.css` Tokens with `zenith.csui.dev` and `docs/index.html`
-
-**Files (2):**
-- Modify: `apps/frontend/DESIGN.md`
-- Modify: `apps/frontend/src/index.css`
-
-- [ ] **Step 1: Update `apps/frontend/DESIGN.md` with the dark-first Zenith Obsidian token table, header layout spec, and anti-slop rules (`R-01`–`R-04`)**
-  - Document `.dark` default palette (`#05060d` background, `#0c101d` card, `#12182b` muted/elevated, `#3b82f6` primary) and `:root` light palette (`#f8fafc` background, `#ffffff` card, `#f1f5f9` muted, `#2563eb` primary).
-  - Document the sticky top header rule: `ZENITH` wordmark on the left (no logo icon), icon-only `ThemeToggle` + right-aligned `DropdownMenu` navigation on the right.
-  - Document copy rules: fun Bahasa Indonesia instructions on non-admin member pages, concise English on admin tables, zero dev-only text, and zero directional instructions.
-
-- [ ] **Step 2: Update `apps/frontend/src/index.css` with Zenith Obsidian tokens and `.zenith-aura`, `.zenith-wordmark`, `.surface-card`, `.surface-elevated` utilities**
-  - Update `.dark` variables:
-    ```css
-    .dark {
-      --background: #05060d;
-      --foreground: #f8fafc;
-      --card: #0c101d;
-      --card-foreground: #f8fafc;
-      --popover: #0c101d;
-      --popover-foreground: #f8fafc;
-      --primary: #3b82f6;
-      --primary-foreground: #ffffff;
-      --secondary: #12182b;
-      --secondary-foreground: #f8fafc;
-      --muted: #12182b;
-      --muted-foreground: #94a3b8;
-      --accent: #12182b;
-      --accent-foreground: #60a5fa;
-      --destructive: #ef4444;
-      --border: rgba(255, 255, 255, 0.1);
-      --input: rgba(255, 255, 255, 0.12);
-      --ring: #3b82f6;
-    }
-    ```
-  - Add utility classes `.zenith-aura`, `.zenith-wordmark`, `.surface-card`, and `.surface-elevated` matching [`docs/index.html`](file:///home/antigravity/VickyIbr/CSUI26/docs/index.html).
-
-- [ ] **Step 3: Deterministic Verification**
-  ```bash
-  pnpm --filter @zenith/frontend run build
-  ```
-
----
-
-### Task 2: Set Dark Theme as Default & Configure Navigation Metadata
-
-**Files (2):**
-- Modify: `apps/frontend/src/app/providers.tsx`
-- Modify: `apps/frontend/src/app/navigation.ts`
-
-- [ ] **Step 1: Set `defaultTheme="dark"` in `apps/frontend/src/app/providers.tsx`**
-  - Update `<ThemeProvider attribute="class" defaultTheme="dark" disableTransitionOnChange>`.
-
-- [ ] **Step 2: Update `apps/frontend/src/app/navigation.ts` with member and admin navigation items**
-  - Export `NavItem` with `to`, `label`, `description`, `icon`, `end`, and `requireAdmin`:
-    - `{ to: '/my-profile', label: 'Profilku', description: 'Lihat tampilan kartu profil', icon: User, end: true }`
-    - `{ to: '/my-profile/edit', label: 'Edit Profil', description: 'Ubah bio, foto & sosmed', icon: Pencil, end: true }`
-    - `{ to: '/directory', label: 'Teman Angkatan', description: 'Jelajahi direktori Zenith 2026', icon: Users, end: true }`
-    - `{ to: '/programs', label: 'Study Programs', description: 'Manage study programs', icon: GraduationCap, requireAdmin: true }`
-    - `{ to: '/courses', label: 'Courses', description: 'Manage curriculum courses', icon: BookOpen, requireAdmin: true }`
-    - `{ to: '/members', label: 'Members (Admin)', description: 'Manage member records & roles', icon: Users, requireAdmin: true }`
-    - `{ to: '/achievements', label: 'Achievements', description: 'Manage featured & yearly awards', icon: Trophy, requireAdmin: true }`
-
-- [ ] **Step 3: Deterministic Verification**
-  ```bash
-  pnpm --filter @zenith/frontend run lint
-  ```
-
----
-
-### Task 3: Update Navigation Unit Tests
+### Task 1: Add Gallery & Activity Zod Schemas and DTO Types to `@zenith/shared`
 
 **Files (1):**
-- Modify: `apps/frontend/src/app/navigation.test.ts`
+- Modify: `packages/shared/src/index.ts`
 
-- [ ] **Step 1: Update `apps/frontend/src/app/navigation.test.ts` to cover `/my-profile`, `/my-profile/edit`, `/directory`, and admin routes**
-  - Verify `isNavItemActive('/my-profile', navItems[0])` is `true` and `isNavItemActive('/my-profile/edit', navItems[0])` is `false` (because `end: true`).
-  - Verify `findNavItem('/my-profile/edit')?.label === 'Edit Profil'` and `findNavItem('/directory')?.label === 'Teman Angkatan'`.
+- [ ] **Step 1: Define `GalleryCategorySchema`, `GalleryItem*Schema`, `PublicGalleryResponseSchema`, and `Activity*Schema` in `packages/shared/src/index.ts`**
+  - Add a required image field schema helper:
+    ```ts
+    export const RequiredImageFieldSchema = z.object({
+      url: optionalImageUrl.refine((val) => val.trim().length > 0, 'Image URL is required'),
+      config: ImageConfigSchema.optional(),
+    });
+    ```
+  - Add Gallery schemas:
+    ```ts
+    export const GalleryCategorySchema = z.enum(['photo', 'hero', 'highlight']);
+
+    export const GalleryItemSchema = z.object({
+      id: z.string().min(1, 'Gallery item ID required'),
+      title: z.string().min(1, 'Title required'),
+      alt: z.string().min(1, 'Alt text required'),
+      category: GalleryCategorySchema,
+      isFeatured: z.boolean(),
+      image: RequiredImageFieldSchema,
+      position: z.number().int().min(0),
+    });
+
+    export const GalleryItemCreateSchema = z.object({
+      id: z.string().min(1, 'Gallery item ID required'),
+      title: z.string().min(1, 'Title required'),
+      alt: z.string().min(1, 'Alt text required'),
+      category: GalleryCategorySchema.default('photo'),
+      isFeatured: z.boolean().default(false),
+      image: RequiredImageFieldSchema,
+      position: z.number().int().min(0).default(0),
+    });
+
+    export const GalleryItemUpdateSchema = z
+      .object({
+        title: z.string().min(1, 'Title required'),
+        alt: z.string().min(1, 'Alt text required'),
+        category: GalleryCategorySchema,
+        isFeatured: z.boolean(),
+        image: RequiredImageFieldSchema,
+        position: z.number().int().min(0),
+      })
+      .partial();
+
+    export const PublicGalleryResponseSchema = z.object({
+      photos: z.array(GalleryItemSchema),
+      heroes: z.array(GalleryItemSchema),
+      highlights: z.array(GalleryItemSchema),
+      featuredPhoto: GalleryItemSchema.nullable(),
+    });
+    ```
+  - Add Activity schemas:
+    ```ts
+    export const ActivitySchema = z.object({
+      id: z.string().min(1, 'Activity ID required'),
+      title: z.string().min(1, 'Activity title required'),
+      date: z.string(),
+      description: z.string().min(1, 'Description required'),
+      image: RequiredImageFieldSchema,
+      position: z.number().int().min(0),
+    });
+
+    export const ActivityCreateSchema = z.object({
+      id: z.string().min(1, 'Activity ID required'),
+      title: z.string().min(1, 'Activity title required'),
+      date: z.string().default(''),
+      description: z.string().min(1, 'Description required'),
+      image: RequiredImageFieldSchema,
+      position: z.number().int().min(0).default(0),
+    });
+
+    export const ActivityUpdateSchema = z
+      .object({
+        title: z.string().min(1, 'Activity title required'),
+        date: z.string(),
+        description: z.string().min(1, 'Description required'),
+        image: RequiredImageFieldSchema,
+        position: z.number().int().min(0),
+      })
+      .partial();
+    ```
+  - Export inferred TypeScript types: `GalleryCategory`, `GalleryItem`, `GalleryItemCreate`, `GalleryItemUpdate`, `PublicGalleryResponse`, `Activity`, `ActivityCreate`, `ActivityUpdate`.
 
 - [ ] **Step 2: Deterministic Verification**
   ```bash
-  pnpm --filter @zenith/frontend test -- src/app/navigation.test.ts
+  pnpm --filter @zenith/shared run build && pnpm --filter @zenith/shared run lint
   ```
 
 ---
 
-### Task 4: Build Wordmark-Only Sticky Header with Icon-Only Theme Toggle & Right-Aligned Dropdown Navigation
+### Task 2: Add `gallery_items` and `activities` Tables to Drizzle Schema & Migration SQL
 
 **Files (2):**
-- Modify: `apps/frontend/src/components/layout/AppHeader.tsx`
-- Modify: `apps/frontend/src/components/layout/AppLayout.tsx`
+- Modify: `apps/backend/src/db/schema.ts`
+- Create: `apps/backend/drizzle/0003_gallery_and_activities.sql`
 
-- [ ] **Step 1: Rebuild `apps/frontend/src/components/layout/AppHeader.tsx` matching `docs/index.html`**
-  - **Left side:** Link to `/my-profile` displaying only `<span className="zenith-wordmark text-xl tracking-tight pr-1 select-none">ZENITH</span>` (no left icon/logo).
-  - **Right side:**
-    1. Icon-only `<ThemeToggle />` button on the left of the dropdown (`aria-label` preserved).
-    2. Right-aligned `<DropdownMenu>` trigger button showing the current active route's icon, label (e.g., `Profilku`), and a `ChevronDown` icon.
-    3. `<DropdownMenuContent align="end" className="w-64 rounded-2xl p-1.5">` listing member pages (**Profilku**, **Edit Profil**, **Teman Angkatan**), a separator + admin section when `user?.isAdmin` is true, and a bottom **Keluar / Log out** item calling `logout()`.
+- [ ] **Step 1: Add `galleryItems` and `activities` table definitions to `apps/backend/src/db/schema.ts`**
+  ```ts
+  export const galleryItems = pgTable('gallery_items', {
+    id: text('id').primaryKey(),
+    title: text('title').notNull(),
+    alt: text('alt').notNull(),
+    category: text('category').notNull().default('photo'),
+    isFeatured: boolean('is_featured').notNull().default(false),
+    image: jsonb('image').$type<{ url: string; config?: ImageConfig }>().notNull(),
+    position: integer('position').notNull().default(0),
+    createdAt: integer('created_at').notNull().default(sql`extract(epoch from now())::int`),
+    updatedAt: integer('updated_at').notNull().default(sql`extract(epoch from now())::int`),
+  }, (table) => ({
+    categoryIdx: index('idx_gallery_items_category').on(table.category),
+    featuredIdx: index('idx_gallery_items_featured').on(table.isFeatured),
+    positionIdx: index('idx_gallery_items_position').on(table.position),
+  }));
 
-- [ ] **Step 2: Simplify `apps/frontend/src/components/layout/AppLayout.tsx` to use the top-header shell + `.zenith-aura`**
-  - Remove `<AppSidebar />` and `<SidebarProvider>` wrapper from `AppLayout.tsx` so the app uses the clean, overflow-free sticky top header + `<div className="zenith-aura" aria-hidden="true" />` and `<main id="main-content" className="mx-auto w-full max-w-6xl flex-1 px-4 py-6 sm:px-6 sm:py-8">`.
+  export const activities = pgTable('activities', {
+    id: text('id').primaryKey(),
+    title: text('title').notNull(),
+    date: text('date'),
+    description: text('description').notNull(),
+    image: jsonb('image').$type<{ url: string; config?: ImageConfig }>().notNull(),
+    position: integer('position').notNull().default(0),
+    createdAt: integer('created_at').notNull().default(sql`extract(epoch from now())::int`),
+    updatedAt: integer('updated_at').notNull().default(sql`extract(epoch from now())::int`),
+  }, (table) => ({
+    positionIdx: index('idx_activities_position').on(table.position),
+  }));
+  ```
+
+- [ ] **Step 2: Create `apps/backend/drizzle/0003_gallery_and_activities.sql`**
+  ```sql
+  CREATE TABLE IF NOT EXISTS "gallery_items" (
+  	"id" text PRIMARY KEY NOT NULL,
+  	"title" text NOT NULL,
+  	"alt" text NOT NULL,
+  	"category" text DEFAULT 'photo' NOT NULL,
+  	"is_featured" boolean DEFAULT false NOT NULL,
+  	"image" jsonb NOT NULL,
+  	"position" integer DEFAULT 0 NOT NULL,
+  	"created_at" integer DEFAULT extract(epoch from now())::int NOT NULL,
+  	"updated_at" integer DEFAULT extract(epoch from now())::int NOT NULL
+  );
+  --> statement-breakpoint
+  CREATE INDEX IF NOT EXISTS "idx_gallery_items_category" ON "gallery_items" USING btree ("category");
+  --> statement-breakpoint
+  CREATE INDEX IF NOT EXISTS "idx_gallery_items_featured" ON "gallery_items" USING btree ("is_featured");
+  --> statement-breakpoint
+  CREATE INDEX IF NOT EXISTS "idx_gallery_items_position" ON "gallery_items" USING btree ("position");
+  --> statement-breakpoint
+  CREATE TABLE IF NOT EXISTS "activities" (
+  	"id" text PRIMARY KEY NOT NULL,
+  	"title" text NOT NULL,
+  	"date" text,
+  	"description" text NOT NULL,
+  	"image" jsonb NOT NULL,
+  	"position" integer DEFAULT 0 NOT NULL,
+  	"created_at" integer DEFAULT extract(epoch from now())::int NOT NULL,
+  	"updated_at" integer DEFAULT extract(epoch from now())::int NOT NULL
+  );
+  --> statement-breakpoint
+  CREATE INDEX IF NOT EXISTS "idx_activities_position" ON "activities" USING btree ("position");
+  ```
 
 - [ ] **Step 3: Deterministic Verification**
   ```bash
-  pnpm --filter @zenith/frontend run lint
+  pnpm --filter @zenith/backend run build
   ```
 
 ---
 
-### Task 5: Add Lock Photo Gesture Protection to `ImageUploadEditor` & Update Unit Tests
+### Task 3: Register Migration in Drizzle Journal & Add Schema Unit Tests
 
 **Files (2):**
+- Modify: `apps/backend/drizzle/meta/_journal.json`
+- Create: `apps/backend/src/__tests__/gallery-activities-schema.test.ts`
+
+- [ ] **Step 1: Append entry `idx: 3` (`0003_gallery_and_activities`) to `apps/backend/drizzle/meta/_journal.json`**
+  ```json
+  {
+    "idx": 3,
+    "version": "7",
+    "when": 1795200000000,
+    "tag": "0003_gallery_and_activities",
+    "breakpoints": true
+  }
+  ```
+
+- [ ] **Step 2: Create `apps/backend/src/__tests__/gallery-activities-schema.test.ts`**
+  - Test `GalleryItemCreateSchema`, `GalleryItemUpdateSchema`, `PublicGalleryResponseSchema`, `ActivityCreateSchema`, and `ActivityUpdateSchema` validation (including rejecting empty `image.url`, invalid `category`, and ensuring partial updates do not inject defaults).
+  - Test `getTableColumns(galleryItems)` and `getTableColumns(activities)` column names and snake_case DB mappings.
+
+- [ ] **Step 3: Deterministic Verification**
+  ```bash
+  pnpm --filter @zenith/backend test -- src/__tests__/gallery-activities-schema.test.ts
+  ```
+
+---
+
+### Task 4: Implement Gallery & Activities Repositories with 60s TTL Cache
+
+**Files (2):**
+- Create: `apps/backend/src/db/repositories/gallery.ts`
+- Create: `apps/backend/src/db/repositories/activities.ts`
+
+- [ ] **Step 1: Create `apps/backend/src/db/repositories/gallery.ts`**
+  - Instantiate `const galleryCache = createTtlCache<PublicGalleryResponse>(60_000);` and `invalidateGalleryCache()`.
+  - Implement:
+    - `countGalleryItems(filters: { search?: string; category?: GalleryCategory; isFeatured?: boolean })`
+    - `getAllGalleryItems(opts: { search?: string; category?: GalleryCategory; isFeatured?: boolean; limit?: number; offset?: number })` ordered by `asc(galleryItems.position), asc(galleryItems.id)`.
+    - `getGroupedGallery(): Promise<PublicGalleryResponse>`:
+      - Checks `galleryCache.get('gallery:grouped')`.
+      - Queries all rows ordered by `asc(galleryItems.position), asc(galleryItems.id)`.
+      - Splits into `photos`, `heroes`, `highlights`.
+      - Sets `featuredPhoto` to the first `photos` item with `isFeatured === true`, falling back to `photos[photos.length - 1] ?? null`.
+    - `getGalleryItemById(id: string)`
+    - `createGalleryItem(input: GalleryItemCreate)` (invalidates `galleryCache`)
+    - `updateGalleryItem(id: string, updates: GalleryItemUpdate)` (updates `updatedAt`, invalidates `galleryCache`)
+    - `deleteGalleryItem(id: string)` (invalidates `galleryCache`)
+
+- [ ] **Step 2: Create `apps/backend/src/db/repositories/activities.ts`**
+  - Instantiate `const activitiesCache = createTtlCache<Activity[]>(60_000);` and `invalidateActivitiesCache()`.
+  - Implement:
+    - `countActivities(filters: { search?: string })`
+    - `getAllActivities(opts: { search?: string; limit?: number; offset?: number })` ordered by `asc(activities.position), asc(activities.id)` (uses `activitiesCache` when no filters/pagination are passed).
+    - `getActivityById(id: string)`
+    - `createActivity(input: ActivityCreate)` (invalidates `activitiesCache`)
+    - `updateActivity(id: string, updates: ActivityUpdate)` (updates `updatedAt`, invalidates `activitiesCache`)
+    - `deleteActivity(id: string)` (invalidates `activitiesCache`)
+
+- [ ] **Step 3: Deterministic Verification**
+  ```bash
+  pnpm --filter @zenith/backend run build
+  ```
+
+---
+
+### Task 5: Export Repositories in Barrel & Implement `/api/v1/gallery` Routes
+
+**Files (2):**
+- Modify: `apps/backend/src/db/repository.ts`
+- Create: `apps/backend/src/routes/gallery.ts`
+
+- [ ] **Step 1: Re-export `gallery.js` and `activities.js` in `apps/backend/src/db/repository.ts`**
+  ```ts
+  export * from './repositories/programs.js';
+  export * from './repositories/courses.js';
+  export * from './repositories/members.js';
+  export * from './repositories/achievements.js';
+  export * from './repositories/gallery.js';
+  export * from './repositories/activities.js';
+  ```
+
+- [ ] **Step 2: Create `apps/backend/src/routes/gallery.ts`**
+  - Mirror [`apps/backend/src/routes/achievements.ts`](file:///home/antigravity/VickyIbr/CSUI26/apps/backend/src/routes/achievements.ts):
+    - `GET /api/v1/gallery`:
+      - Sets `Vary: Cookie, Authorization` and `Cache-Control` (`private, no-store` if authenticated request, else `public, max-age=60, stale-while-revalidate=300`).
+      - Returns `{ data: await repo.getGroupedGallery() }` when `query.format === 'grouped'`.
+      - Otherwise parses `page`, `limit`, `search`, `category` (`GalleryCategorySchema.safeParse`), and `featured` (`'true' | 'false'`), returning `{ data, total, page, limit, totalPages }`.
+    - `GET /api/v1/gallery/:id`: returns `{ data: item }` or `404` `{ error: 'Gallery item not found' }`.
+    - `POST /api/v1/gallery` (`preHandler: [blockUnauthorized(), adminOnly()]`): validates `GalleryItemCreateSchema`, returns `409` `{ error: 'Gallery item exists' }` on duplicate `id`, or `201` `{ data: created }`.
+    - `PUT /api/v1/gallery/:id` (`preHandler: [blockUnauthorized(), adminOnly()]`): validates `GalleryItemUpdateSchema`, returns `404` if missing, or `200` `{ data: updated }`.
+    - `DELETE /api/v1/gallery/:id` (`preHandler: [blockUnauthorized(), adminOnly()]`): returns `404` if missing, or `200` `{ data: { id } }`.
+
+- [ ] **Step 3: Deterministic Verification**
+  ```bash
+  pnpm --filter @zenith/backend run build
+  ```
+
+---
+
+### Task 6: Implement `/api/v1/activities` Routes & Register Plugins in `app.ts`
+
+**Files (2):**
+- Create: `apps/backend/src/routes/activities.ts`
+- Modify: `apps/backend/src/app.ts`
+
+- [ ] **Step 1: Create `apps/backend/src/routes/activities.ts`**
+  - Implement:
+    - `GET /api/v1/activities` (supports `?search=&page=&limit=`, sets `Vary: Cookie, Authorization` and auth-aware `Cache-Control`, returns `{ data, total, page, limit, totalPages }`).
+    - `GET /api/v1/activities/:id` (returns `{ data: activity }` or `404` `{ error: 'Activity not found' }`).
+    - `POST /api/v1/activities` (`preHandler: [blockUnauthorized(), adminOnly()]`, validates `ActivityCreateSchema`, returns `409` `{ error: 'Activity exists' }` on duplicate `id`, or `201` `{ data: created }`).
+    - `PUT /api/v1/activities/:id` (`preHandler: [blockUnauthorized(), adminOnly()]`, validates `ActivityUpdateSchema`, returns `404` or `200` `{ data: updated }`).
+    - `DELETE /api/v1/activities/:id` (`preHandler: [blockUnauthorized(), adminOnly()]`, returns `404` or `200` `{ data: { id } }`).
+
+- [ ] **Step 2: Register `galleryRoutes` and `activityRoutes` in `apps/backend/src/app.ts`**
+  - Import `galleryRoutes` from `./routes/gallery.js` and `activityRoutes` from `./routes/activities.js`, and call `fastify.register(galleryRoutes)` and `fastify.register(activityRoutes)`.
+
+- [ ] **Step 3: Deterministic Verification**
+  ```bash
+  pnpm --filter @zenith/backend run build
+  ```
+
+---
+
+### Task 7: Add `/api/v1/upload/gallery` & `/api/v1/upload/activity` Endpoints and Backend Integration Tests
+
+**Files (2):**
+- Modify: `apps/backend/src/routes/upload.ts`
+- Create: `apps/backend/src/__tests__/gallery-activities-api.test.ts`
+
+- [ ] **Step 1: Add `POST /api/v1/upload/gallery` and `POST /api/v1/upload/activity` to `apps/backend/src/routes/upload.ts`**
+  - Helper `sanitizeUploadSlug(rawId: string | undefined, fallback: string)` to normalize `?id=` query param.
+  - `fastify.post('/api/v1/upload/gallery', { preHandler: [blockUnauthorized(), adminOnly()] }, ...)` storing under `gallery/${safeId}-${Date.now()}.${ext}`.
+  - `fastify.post('/api/v1/upload/activity', { preHandler: [blockUnauthorized(), adminOnly()] }, ...)` storing under `activities/${safeId}-${Date.now()}.${ext}`.
+
+- [ ] **Step 2: Create `apps/backend/src/__tests__/gallery-activities-api.test.ts`**
+  - Test unauthenticated `GET /api/v1/gallery`, `GET /api/v1/gallery?format=grouped` (including `featuredPhoto` selection and fallback), and `GET /api/v1/activities`.
+  - Test `401` and `403` enforcement for unauthenticated and non-admin callers on `POST`/`PUT`/`DELETE` and `/api/v1/upload/gallery` & `/api/v1/upload/activity`.
+  - Test admin CRUD lifecycle (`201 Created`, `409 Conflict` on duplicate slug ID, `200 OK` update, `200 OK` delete, `404` after delete) and `Cache-Control: private, no-store` when `Authorization` header is present.
+
+- [ ] **Step 3: Deterministic Verification**
+  ```bash
+  pnpm --filter @zenith/backend test -- src/__tests__/gallery-activities-api.test.ts
+  ```
+
+---
+
+### Task 8: Create Seed Datasets (`data/gallery.json` & `data/activities.json`)
+
+**Files (2):**
+- Create: `data/gallery.json`
+- Create: `data/activities.json`
+
+- [ ] **Step 1: Create `data/gallery.json` with initial `zenith.csui.dev` gallery items**
+  - Include:
+    - 4 `photo` items (`foto-angkatan-1` through `foto-angkatan-4`, with `foto-angkatan-4` marked `isFeatured: true`, aspect `'4:3'` / `'16:9'`, and exact Bahasa Indonesia `alt` captions from `zenith.csui.dev`).
+    - 2 `hero` items (`racoon-1`, `racoon-2` for *Karakter Zenith* with aspect `'4:7'` and Bahasa Indonesia `alt` captions).
+    - 2 `highlight` items (`highlight-1`, `highlight-2` for Beranda *Foto angkatan* with aspect `'4:3'`).
+
+- [ ] **Step 2: Create `data/activities.json` with initial `zenith.csui.dev` activities**
+  - Include `ddp0` (`DDP0`), `pkkmb` (`PKKMB`), `psaf` (`PSAF`, `date: "11-13 Agustus 2026"`), and `pmb` (`PMB`) with their exact descriptions and `16:9` image configs.
+
+- [ ] **Step 3: Deterministic Verification**
+  ```bash
+  node -e "const fs = require('fs'); const g = JSON.parse(fs.readFileSync('data/gallery.json', 'utf8')); const a = JSON.parse(fs.readFileSync('data/activities.json', 'utf8')); if (g.length < 8 || a.length < 4) process.exit(1); console.log('Seed JSON validated:', g.length, a.length);"
+  ```
+
+---
+
+### Task 9: Add `seedGallery()` and `seedActivities()` to `apps/backend/src/db/seed.ts`
+
+**Files (1):**
+- Modify: `apps/backend/src/db/seed.ts`
+
+- [ ] **Step 1: Update `apps/backend/src/db/seed.ts` to seed `gallery_items` and `activities`**
+  - Import `galleryItems, activities` from `./schema.js`.
+  - Add `GALLERY_FILE = join(DATA_DIR, 'gallery.json')` and `ACTIVITIES_FILE = join(DATA_DIR, 'activities.json')`.
+  - Implement `seedGallery()` and `seedActivities()` using `migrateImageToS3()` (`gallery/${item.id}` and `activities/${item.id}`) and execute them in `main()`.
+
+- [ ] **Step 2: Deterministic Verification**
+  ```bash
+  pnpm --filter @zenith/backend run build
+  ```
+
+---
+
+### Task 10: Extend Frontend `uploadMedia` & `ImageUploadEditor` for Gallery/Activity Endpoints and Aspect Ratios
+
+**Files (2):**
+- Modify: `apps/frontend/src/lib/api.ts`
 - Modify: `apps/frontend/src/components/patterns/ImageUploadEditor.tsx`
-- Modify: `apps/frontend/src/components/patterns/ImageUploadEditor.test.tsx`
 
-- [ ] **Step 1: Implement Client-Side Lock Photo in `apps/frontend/src/components/patterns/ImageUploadEditor.tsx`**
-  - Add state:
-    - `const [isLocked, setIsLocked] = useState<boolean>(() => Boolean(value.url));`
-    - `const [showLockHint, setShowLockHint] = useState(false);`
-  - Sync lock state when `value.url` loads asynchronously (if `!pendingFileUrl && value.url` transitions from empty to non-empty, set `isLocked(true)`).
-  - When a new file is selected in `handleFileChange`, automatically set `setIsLocked(false)` so the user can crop immediately.
-  - When `previewSrc` is present:
-    - Render a top overlay bar inside the 1:1 photo stage with:
-      - Status pill: `Terkunci` (emerald dot) when `isLocked`, or `Terbuka` (amber pulsing dot) when unlocked.
-      - Toggle button (`type="button"`, `aria-pressed={isLocked}`, `aria-label={isLocked ? 'Buka Kunci Foto' : 'Kunci Foto'}`): displays `Lock` / `Unlock` icon + label `Buka Kunci Foto` (when locked) or `Kunci Foto` (when unlocked).
-    - When `isLocked === true`:
-      - Set `style={{ aspectRatio: aspectToCss(activeConfig.aspect), touchAction: 'pan-y' }}` and `cursor-default`.
-      - If the user triggers `onPointerDown` on the image container (outside buttons), do **not** start dragging; instead flash `showLockHint = true` for `1500ms` showing the non-directional overlay: *"Foto masih dikunci. Tekan Buka Kunci Foto untuk mengatur posisi."*
-      - Hide/disable the zoom slider, rotation slider, 90-degree rotate button, and reset button so the interface stays clean and accidental touches cannot alter `config`.
-    - When `isLocked === false`:
-      - Enable `handlePointerDown` / `handlePointerMove` / `handlePointerEnd` with `touch-none cursor-grab`.
-      - Show the zoom, rotation, and reset controls.
-    - When `handleApplyUpload()` or `handleCommitCurrent()` succeeds, automatically set `setIsLocked(true)`.
+- [ ] **Step 1: Export `UploadEndpoint` type in `apps/frontend/src/lib/api.ts`**
+  ```ts
+  export type UploadEndpoint =
+    | '/upload/avatar'
+    | '/upload/achievement'
+    | '/upload/gallery'
+    | '/upload/activity';
+  ```
+  - Update `uploadMedia(endpoint: UploadEndpoint, blob: Blob, params?: Record<string, string>)`.
 
-- [ ] **Step 2: Update `apps/frontend/src/components/patterns/ImageUploadEditor.test.tsx`**
-  - Test that when initialized with a saved `value.url`, the photo starts locked (`aria-pressed="true"`, button `Buka Kunci Foto`), dragging does not fire `onChange`, and the lock hint alert appears.
-  - Test that clicking `Buka Kunci Foto` unlocks the editor, reveals `Zoom image`, `Rotate 90 degrees`, `Fine rotation`, and `Reset position`, allows pointer drag to update `x`/`y`, and auto-locks after clicking `Save photo`.
+- [ ] **Step 2: Add `defaultAspect?: string` and `UploadEndpoint` support to `apps/frontend/src/components/patterns/ImageUploadEditor.tsx`**
+  - Update `ImageUploadEditorProps`:
+    - `endpoint: UploadEndpoint;`
+    - `defaultAspect?: string;` (defaults to `'1:1'`)
+  - Resolve `const resolvedAspect = value.config?.aspect || defaultAspect;` in `activeConfig`, `handleFileChange`, and `handleReset` so `GalleryFormDialog` (`4:3`, `4:7`, `16:9`) and `ActivityFormDialog` (`16:9`) frame and crop images at their target aspect ratio while preserving `1:1` as the default for member avatars.
 
 - [ ] **Step 3: Deterministic Verification**
   ```bash
@@ -212,33 +465,19 @@
 
 ---
 
-### Task 6: Create `ProfileShowcaseCard` & Rebuild Dedicated Preview Page (`MyProfilePage.tsx`)
+### Task 11: Create Frontend Gallery API Client & Form Validation Schema
 
 **Files (2):**
-- Create: `apps/frontend/src/features/members/ProfileShowcaseCard.tsx`
-- Modify: `apps/frontend/src/features/members/MyProfilePage.tsx`
+- Create: `apps/frontend/src/features/gallery/api.ts`
+- Create: `apps/frontend/src/features/gallery/schema.ts`
 
-- [ ] **Step 1: Create `apps/frontend/src/features/members/ProfileShowcaseCard.tsx` matching `docs/index.html` Page 1**
-  - Accepts `member: Partial<Member> & { npm?: string; programName?: string }` and optional `isOwner?: boolean`.
-  - **Left column (1:1 Locked Photo Stage):**
-    - Renders the member's 1:1 photo with `objectPosition` and `transform` derived from `member.foto?.config`, `style={{ touchAction: 'pan-y' }}`.
-    - Top-left pill badge with `Lock` icon + `"Foto Terkunci"`.
-    - Tapping/dragging the photo stage flashes the non-directional hint overlay: *"Foto sedang dikunci. Buka menu Edit Profil untuk mengatur posisi foto."*
-  - **Right column (Member Details):**
-    - Study program pill (`GraduationCap` icon + major/program name) + monospace NPM pill.
-    - Display name (`h1` / `h2`), nickname with `Sparkles` icon, and email with `Mail` icon (if present).
-    - Bio paragraph (`deskripsi`).
-    - `Quotes Andalan` callout card (`Quote` icon + italic quote).
-    - `Minat & Niche` section (`Tag` icon + comma-split `niche` pills).
-    - Social links bar (`Instagram`, `GitHub`, `LinkedIn`, `LINE`) using `openSocialLink` / `getSocialLinkHref` from `socialLinks.ts`.
+- [ ] **Step 1: Create `apps/frontend/src/features/gallery/api.ts`**
+  - Export `galleryApi` with `list(params)`, `listGrouped()`, `get(id)`, `create(payload)`, `update(id, payload)`, and `remove(id)`.
 
-- [ ] **Step 2: Rebuild `apps/frontend/src/features/members/MyProfilePage.tsx` as the Dedicated Preview Page ("Profilku")**
-  - Fetches the logged-in member's profile (`membersApi.get(user.npm)`) and study programs (`programsApi.list()`).
-  - Renders the friendly, position-agnostic Bahasa Indonesia banner from `docs/index.html`:
-    - Title: *"Ini tampilan kartu profilmu di direktori Zenith!"*
-    - Description: *"Biar makin gampang dikenal teman satu angkatan, kamu bisa lengkapi bio, minat, dan sosmedmu lewat Edit Profilku."*
-    - Action button: `<Button asChild><Link to="/my-profile/edit"><Pencil /> Edit Profilku</Link></Button>`
-  - Renders `<ProfileShowcaseCard member={...} isOwner />`.
+- [ ] **Step 2: Create `apps/frontend/src/features/gallery/schema.ts`**
+  - Export `defaultAspectForGalleryCategory(category: GalleryCategory, isFeatured: boolean): string` returning `'4:7'` for `'hero'`, `'16:9'` for `'photo'` when `isFeatured === true`, and `'4:3'` otherwise.
+  - Export `slugifyGalleryId(title: string): string`.
+  - Export `galleryFormSchema`, `GalleryFormValues`, and `toGalleryPayload(values: GalleryFormValues): GalleryItemCreate`.
 
 - [ ] **Step 3: Deterministic Verification**
   ```bash
@@ -247,31 +486,20 @@
 
 ---
 
-### Task 7: Create Dedicated Edit Profile Page (`EditProfilePage.tsx`) & Cohort Directory Page (`CohortDirectoryPage.tsx`)
+### Task 12: Create `GalleryFormDialog` & Utilitarian `GalleryPage` Admin View
 
 **Files (2):**
-- Create: `apps/frontend/src/features/members/EditProfilePage.tsx`
-- Create: `apps/frontend/src/features/members/CohortDirectoryPage.tsx`
+- Create: `apps/frontend/src/features/gallery/GalleryFormDialog.tsx`
+- Create: `apps/frontend/src/features/gallery/GalleryPage.tsx`
 
-- [ ] **Step 1: Create `apps/frontend/src/features/members/EditProfilePage.tsx` matching `docs/index.html` Page 2**
-  - Header: *"Poles Kartu Profilmu!"* + *"Bikin teman-teman satu angkatan gampang kenal dan ngajak kamu kolaborasi."* + **Lihat Hasil Kartu** button linking to `/my-profile`.
-  - **3 Fun Position-Agnostic Bahasa Indonesia Tips Cards:**
-    1. *1. Fitur Kunci Foto* — *"Mau atur zoom atau geser posisi wajahmu? Tekan tombol Buka Kunci Foto terlebih dahulu, lalu kunci kembali setelah selesai."*
-    2. *2. Tips Niche & Minat* — *"Pisahkan minatmu pakai tanda koma (contoh: Game Dev, UI/UX, CTF). Nanti otomatis tampil jadi badge keren!"*
-    3. *3. Quotes & Sosial Media* — *"Tulis satu kalimat andalanmu di bagian Quotes, dan cukup ketik username sosmedmu saja tanpa perlu salin link panjang."*
-  - **12-Column Responsive Studio:**
-    - Left (5 cols): `ImageUploadEditor` (`endpoint="/upload/avatar"`, `onCommit={handleCommitPhoto}`).
-    - Right (7 cols): Form fields (`Nama Lengkap`, `Nama Panggilan`, `Program Studi` Radix `Select`, `Email Aktif`, `Minat & Niche`, `Cerita Singkat Tentangmu (Bio)`, `Quotes Andalan`, and `SocialLinkField` inputs for Instagram, LINE, GitHub, LinkedIn).
-    - Submit button: **Simpan & Lihat Kartu** (`PUT /api/v1/members/me`, emits `zenith:profile-updated`, shows `toast.success('Profil berhasil diperbarui')`, and navigates to `/my-profile`).
+- [ ] **Step 1: Create `apps/frontend/src/features/gallery/GalleryFormDialog.tsx`**
+  - Built on `FormDialog`, `TextField`, `TextAreaField`, `Select` (`photo` / `hero` / `highlight`), featured checkbox, numeric `position` field (`font-mono tabular-nums`), and `ImageUploadEditor` (`endpoint="/upload/gallery"`, `defaultAspect={defaultAspectForGalleryCategory(category, isFeatured)}`).
+  - Auto-populates `id` from `title` via `slugifyGalleryId` when creating a new item (locked when editing).
+  - Follows `anti-slop` gates (`R-01`–`R-04`): zero em-dashes, direct English labels, explicit `aria-label` attributes.
 
-- [ ] **Step 2: Create `apps/frontend/src/features/members/CohortDirectoryPage.tsx` matching `docs/index.html` Page 3**
-  - Uses `useResourceList<Member>({ path: '/members', pageSize: 16, filters: { search, program: programFilter } })`.
-  - Fun Bahasa Indonesia header banner:
-    - Title: *"Kenalan sama teman-teman Zenith 2026 yuk!"*
-    - Description: *"Cari berdasarkan minat seperti \"Game Dev\" atau \"Cyber Security\" buat nemu partner lomba, belajar bareng, atau mabar."*
-    - Search input (`Cari nama atau minat...`) + study program filter pills (`Semua` + loaded programs).
-  - Grid of classmate cards showing avatar thumbnail, nickname, major badge, full name, NPM, and top 3 comma-split niche pills.
-  - Clicking a classmate card opens a `Dialog` displaying their full `<ProfileShowcaseCard />`.
+- [ ] **Step 2: Create `apps/frontend/src/features/gallery/GalleryPage.tsx`**
+  - High-density utilitarian admin table built on `PageHeader`, `SearchInput` (`/` shortcut), category `Select` filter (`All categories`, `Cohort Photo`, `Mascot Hero`, `Homepage Highlight`), `ListState`, `Table`, `GalleryFormDialog`, and `ConfirmDialog`.
+  - Displays cropped aspect thumbnail preview, title + alt text preview, monospace slug `id`, category badge, featured badge, monospace `position`, and icon-only `Edit` / `Delete` buttons with explicit `aria-label`s.
 
 - [ ] **Step 3: Deterministic Verification**
   ```bash
@@ -280,63 +508,100 @@
 
 ---
 
-### Task 8: Wire New Routes in `router.tsx` & Add Member Pages Unit Tests
+### Task 13: Create Frontend Activities API Client & Form Validation Schema
+
+**Files (2):**
+- Create: `apps/frontend/src/features/activities/api.ts`
+- Create: `apps/frontend/src/features/activities/schema.ts`
+
+- [ ] **Step 1: Create `apps/frontend/src/features/activities/api.ts`**
+  - Export `activitiesApi` with `list(params)`, `get(id)`, `create(payload)`, `update(id, payload)`, and `remove(id)`.
+
+- [ ] **Step 2: Create `apps/frontend/src/features/activities/schema.ts`**
+  - Export `slugifyActivityId(title: string): string`, `activityFormSchema`, `ActivityFormValues`, and `toActivityPayload(values: ActivityFormValues): ActivityCreate` (defaulting `image.config.aspect` to `'16:9'`).
+
+- [ ] **Step 3: Deterministic Verification**
+  ```bash
+  pnpm --filter @zenith/frontend run lint
+  ```
+
+---
+
+### Task 14: Create `ActivityFormDialog` & Utilitarian `ActivitiesPage` Admin View
+
+**Files (2):**
+- Create: `apps/frontend/src/features/activities/ActivityFormDialog.tsx`
+- Create: `apps/frontend/src/features/activities/ActivitiesPage.tsx`
+
+- [ ] **Step 1: Create `apps/frontend/src/features/activities/ActivityFormDialog.tsx`**
+  - Built on `FormDialog`, `TextField` (`title`, `id`, optional `date`, `position`), `TextAreaField` (`description`), and `ImageUploadEditor` (`endpoint="/upload/activity"`, `defaultAspect="16:9"`).
+  - Auto-populates `id` from `title` when creating a new activity.
+
+- [ ] **Step 2: Create `apps/frontend/src/features/activities/ActivitiesPage.tsx`**
+  - Utilitarian admin table built on `PageHeader`, `SearchInput` (`/` shortcut), `ListState`, `Table`, `ActivityFormDialog`, and `ConfirmDialog` (`n` shortcut to add activity).
+  - Displays `16:9` thumbnail preview, activity title, monospace slug `id`, optional date pill, truncated description, monospace `position`, and icon-only `Edit` / `Delete` actions with explicit `aria-label`s.
+
+- [ ] **Step 3: Deterministic Verification**
+  ```bash
+  pnpm --filter @zenith/frontend run lint
+  ```
+
+---
+
+### Task 15: Register `/gallery` and `/activities` Admin Routes in `router.tsx` & `navigation.ts`
 
 **Files (2):**
 - Modify: `apps/frontend/src/app/router.tsx`
-- Create: `apps/frontend/src/features/members/MyProfilePage.test.tsx`
+- Modify: `apps/frontend/src/app/navigation.ts`
 
-- [ ] **Step 1: Register `/my-profile/edit` and `/directory` inside `ProtectedRoute` in `apps/frontend/src/app/router.tsx`**
-  - Lazy-load `EditProfilePage` (`@/features/members/EditProfilePage`) and `CohortDirectoryPage` (`@/features/members/CohortDirectoryPage`).
-  - Add `<Route path="my-profile/edit" element={<EditProfilePage />} />` and `<Route path="directory" element={<CohortDirectoryPage />} />`.
+- [ ] **Step 1: Register lazy `/gallery` and `/activities` routes inside `AdminRoute` in `apps/frontend/src/app/router.tsx`**
+  ```tsx
+  const GalleryPage = lazy(() => import('@/features/gallery/GalleryPage'));
+  const ActivitiesPage = lazy(() => import('@/features/activities/ActivitiesPage'));
+  ```
+  - Add `<Route path="gallery" element={<AdminRoute><GalleryPage /></AdminRoute>} />` and `<Route path="activities" element={<AdminRoute><ActivitiesPage /></AdminRoute>} />`.
 
-- [ ] **Step 2: Create `apps/frontend/src/features/members/MyProfilePage.test.tsx`**
-  - Verify `MyProfilePage` renders the member's showcase card, `Foto Terkunci` status badge, comma-split niche pills, `Edit Profilku` link to `/my-profile/edit`, and contains zero dev jargon (`"NPM & Role locked by Auth"`, `"PUT /api/v1/members/me"`) and zero directional instructions (`"Klik tombol di kanan"`).
-  - Verify `EditProfilePage` renders the 3 Bahasa Indonesia tip cards and submits updates via `membersApi.updateMe`.
+- [ ] **Step 2: Add `Gallery` and `Activities` items to `apps/frontend/src/app/navigation.ts`**
+  - Import `Calendar, Images` from `lucide-react`.
+  - Append to `navItems`:
+    ```ts
+    {
+      to: '/gallery',
+      label: 'Gallery',
+      description: 'Manage cohort photos & mascots',
+      icon: Images,
+      requireAdmin: true,
+    },
+    {
+      to: '/activities',
+      label: 'Activities',
+      description: 'Manage cohort activities',
+      icon: Calendar,
+      requireAdmin: true,
+    },
+    ```
 
 - [ ] **Step 3: Deterministic Verification**
   ```bash
-  pnpm --filter @zenith/frontend test -- src/features/members/MyProfilePage.test.tsx
+  pnpm --filter @zenith/frontend run build
   ```
 
 ---
 
-### Task 9: Simplify Admin `/programs` & `/courses` Pages into Utilitarian Primitive Tables
+### Task 16: Add Frontend Unit Tests for Navigation, `GalleryPage`, and `ActivitiesPage`
 
 **Files (2):**
-- Modify: `apps/frontend/src/features/programs/ProgramsPage.tsx`
-- Modify: `apps/frontend/src/features/courses/CoursesPage.tsx`
+- Modify: `apps/frontend/src/app/navigation.test.ts`
+- Create: `apps/frontend/src/features/gallery/GalleryAndActivitiesPage.test.tsx`
 
-- [ ] **Step 1: Replace the card grid in `apps/frontend/src/features/programs/ProgramsPage.tsx` with a dense primitive `Table`**
-  - Render `<Table>` (`TableHeader`, `TableBody`, `TableRow`, `TableHead`, `TableCell` from `@/components/ui/table`) with columns: **ID**, **Name**, **Slug**, **Semesters**, **Courses Link**, and right-aligned icon-only **Edit** (`aria-label="Edit <name>"`) and **Delete** (`aria-label="Delete <name>"`) buttons.
-  - Fix the mixed-language typo `"Press n untuk menambah."` to `"Press n to add."`.
-  - Keep `ProgramFormDialog` and `ConfirmDialog` intact.
+- [ ] **Step 1: Update `apps/frontend/src/app/navigation.test.ts`**
+  - Assert `findNavItem('/gallery')?.label === 'Gallery'` (`requireAdmin: true`) and `findNavItem('/activities')?.label === 'Activities'` (`requireAdmin: true`).
 
-- [ ] **Step 2: Replace `CourseRowCard` stack in `apps/frontend/src/features/courses/CoursesPage.tsx` with a dense primitive `Table`**
-  - Render `<Table>` matching `docs/index.html` Page 4 with columns: **Code** (`font-mono tabular-nums`), **Course Name**, **Study Program**, **Term** (`font-mono tabular-nums`), **Credits** (`<sks> SKS`, `font-mono tabular-nums`), and right-aligned icon-only **Edit** / **Delete** buttons.
-  - Keep the compact filter bar (`SearchInput`, Program `Select`, Semester `Input`, SKS `Select`), `Paginator`, `CourseFormDialog`, and `ConfirmDialog`.
+- [ ] **Step 2: Create `apps/frontend/src/features/gallery/GalleryAndActivitiesPage.test.tsx`**
+  - Test `GalleryPage`: renders table rows from `GET /api/v1/gallery`, filters by category, opens `GalleryFormDialog` on clicking `Add item`, and passes anti-slop copy assertions (zero em-dashes/en-dashes).
+  - Test `ActivitiesPage`: renders table rows from `GET /api/v1/activities`, opens `ActivityFormDialog` on clicking `Add activity`, deletes via `ConfirmDialog`, and passes anti-slop copy assertions.
 
-- [ ] **Step 3: Deterministic Verification**
+- [ ] **Step 3: Full Monorepo Deterministic Verification**
   ```bash
-  pnpm --filter @zenith/frontend run lint
-  ```
-
----
-
-### Task 10: Simplify Admin `/members` Page into Utilitarian Primitive Table & Verify Full Suite
-
-**Files (2):**
-- Modify: `apps/frontend/src/features/members/MembersPage.tsx`
-- Create: `apps/frontend/src/features/members/MembersPage.test.tsx`
-
-- [ ] **Step 1: Replace `MemberCard` grid in `apps/frontend/src/features/members/MembersPage.tsx` with a dense primitive `Table`**
-  - Render `<Table>` with columns: **NPM** (`font-mono tabular-nums`), **Name** (with small `MemberAvatar`), **Nickname**, **Study Program**, **Niche**, and right-aligned icon-only **Edit** (`aria-label="Edit <name>"`) and **Delete** (`aria-label="Delete <name>"`) buttons.
-  - Keep `SearchInput`, Program `Select`, `Paginator`, `MemberFormDialog`, and `ConfirmDialog`.
-
-- [ ] **Step 2: Create `apps/frontend/src/features/members/MembersPage.test.tsx`**
-  - Test that the admin `MembersPage` renders member rows in a `<table>`, supports opening the edit dialog via `Edit <name>`, and passes anti-slop checks (zero em-dashes, accessible labels on all buttons).
-
-- [ ] **Step 3: Full Monorepo Frontend Verification (Test, Lint, Build)**
-  ```bash
-  pnpm --filter @zenith/frontend test && pnpm --filter @zenith/frontend run lint && pnpm --filter @zenith/frontend run build
+  pnpm turbo run build lint test
   ```

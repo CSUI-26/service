@@ -11,6 +11,8 @@ import { programRoutes } from './routes/programs.js';
 import { courseRoutes } from './routes/courses.js';
 import { memberRoutes } from './routes/members.js';
 import { achievementRoutes } from './routes/achievements.js';
+import { galleryRoutes } from './routes/gallery.js';
+import { activityRoutes } from './routes/activities.js';
 import { uploadRoutes } from './routes/upload.js';
 
 export function createApp() {
@@ -64,6 +66,8 @@ export function createApp() {
   fastify.register(courseRoutes);
   fastify.register(memberRoutes);
   fastify.register(achievementRoutes);
+  fastify.register(galleryRoutes);
+  fastify.register(activityRoutes);
   fastify.register(uploadRoutes);
   fastify.register(authRoutes);
 

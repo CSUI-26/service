@@ -1,0 +1,138 @@
+[
+  {
+    "id": "foto-angkatan-1",
+    "title": "Foto Angkatan 1",
+    "alt": "Mahasiswa CSUI 2026 berpakaian kasual duduk dan berdiri di lapangan depan Rektorat UI.",
+    "category": "photo",
+    "isFeatured": false,
+    "image": {
+      "url": "/images/gallery/foto-angkatan-1.jpg",
+      "config": {
+        "x": 50,
+        "y": 50,
+        "zoom": 1,
+        "aspect": "4:3"
+      }
+    },
+    "position": 0
+  },
+  {
+    "id": "foto-angkatan-2",
+    "title": "Foto Angkatan 2",
+    "alt": "Mahasiswa CSUI 2026 berjaket kuning UI berfoto bersama di depan gedung Rektorat UI.",
+    "category": "photo",
+    "isFeatured": false,
+    "image": {
+      "url": "/images/gallery/foto-angkatan-2.jpg",
+      "config": {
+        "x": 50,
+        "y": 50,
+        "zoom": 1,
+        "aspect": "4:3"
+      }
+    },
+    "position": 1
+  },
+  {
+    "id": "foto-angkatan-3",
+    "title": "Foto Angkatan 3",
+    "alt": "Mahasiswa berjaket kuning dan bercelana putih berpose dalam dua baris di depan Rektorat UI.",
+    "category": "photo",
+    "isFeatured": false,
+    "image": {
+      "url": "/images/gallery/foto-angkatan-3.jpg",
+      "config": {
+        "x": 50,
+        "y": 50,
+        "zoom": 1,
+        "aspect": "4:3"
+      }
+    },
+    "position": 2
+  },
+  {
+    "id": "foto-angkatan-4",
+    "title": "Foto Angkatan 4",
+    "alt": "Mahasiswa CSUI 2026 membentuk setengah lingkaran di depan Rektorat UI, beberapa memegang map kuning.",
+    "category": "photo",
+    "isFeatured": true,
+    "image": {
+      "url": "/images/gallery/foto-angkatan-4.jpg",
+      "config": {
+        "x": 50,
+        "y": 50,
+        "zoom": 1,
+        "aspect": "16:9"
+      }
+    },
+    "position": 3
+  },
+  {
+    "id": "racoon-1",
+    "title": "Karakter Zenith 1",
+    "alt": "Ilustrasi rakun Zenith berpita merah muda sambil membawa buku hitam berlogo Python.",
+    "category": "hero",
+    "isFeatured": false,
+    "image": {
+      "url": "/images/gallery/heroes/Racoon1.png",
+      "config": {
+        "x": 50,
+        "y": 50,
+        "zoom": 1,
+        "aspect": "4:7"
+      }
+    },
+    "position": 0
+  },
+  {
+    "id": "racoon-2",
+    "title": "Karakter Zenith 2",
+    "alt": "Ilustrasi rakun Zenith berjaket biru sambil memegang laptop yang terbuka.",
+    "category": "hero",
+    "isFeatured": false,
+    "image": {
+      "url": "/images/gallery/heroes/Racoon2.png",
+      "config": {
+        "x": 50,
+        "y": 50,
+        "zoom": 1,
+        "aspect": "4:7"
+      }
+    },
+    "position": 1
+  },
+  {
+    "id": "highlight-1",
+    "title": "Highlight Kemeja Putih",
+    "alt": "Mahasiswa Zenith berkemeja putih berfoto bersama di depan gedung Rektorat UI.",
+    "category": "highlight",
+    "isFeatured": false,
+    "image": {
+      "url": "/images/about/highlight1.png",
+      "config": {
+        "x": 50,
+        "y": 50,
+        "zoom": 1,
+        "aspect": "4:3"
+      }
+    },
+    "position": 0
+  },
+  {
+    "id": "highlight-2",
+    "title": "Highlight Jaket Kuning",
+    "alt": "Mahasiswa Zenith berjaket kuning UI berfoto bersama di lapangan depan gedung Rektorat UI.",
+    "category": "highlight",
+    "isFeatured": false,
+    "image": {
+      "url": "/images/about/highlight2.png",
+      "config": {
+        "x": 50,
+        "y": 50,
+        "zoom": 1,
+        "aspect": "4:3"
+      }
+    },
+    "position": 1
+  }
+]

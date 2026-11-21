@@ -37,8 +37,14 @@ export interface UploadedMedia {
   size: number;
 }
 
+export type UploadEndpoint =
+  | '/upload/avatar'
+  | '/upload/achievement'
+  | '/upload/gallery'
+  | '/upload/activity';
+
 export async function uploadMedia(
-  endpoint: '/upload/avatar' | '/upload/achievement',
+  endpoint: UploadEndpoint,
   blob: Blob,
   params?: Record<string, string>,
 ): Promise<UploadedMedia> {

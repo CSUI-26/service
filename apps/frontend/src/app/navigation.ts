@@ -1,4 +1,14 @@
-import { BookOpen, GraduationCap, Pencil, Trophy, User, Users, type LucideIcon } from 'lucide-react';
+import {
+  BookOpen,
+  Calendar,
+  GraduationCap,
+  Images,
+  Pencil,
+  Trophy,
+  User,
+  Users,
+  type LucideIcon,
+} from 'lucide-react';
 
 export interface NavItem {
   to: string;
@@ -57,6 +67,20 @@ export const navItems: NavItem[] = [
     label: 'Achievements',
     description: 'Manage featured & yearly awards',
     icon: Trophy,
+    requireAdmin: true,
+  },
+  {
+    to: '/gallery',
+    label: 'Gallery',
+    description: 'Manage cohort photos & mascots',
+    icon: Images,
+    requireAdmin: true,
+  },
+  {
+    to: '/activities',
+    label: 'Activities',
+    description: 'Manage cohort activities',
+    icon: Calendar,
     requireAdmin: true,
   },
 ];

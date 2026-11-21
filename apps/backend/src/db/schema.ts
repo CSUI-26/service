@@ -85,6 +85,35 @@ export const achievements = pgTable('achievements', {
   featuredIdx: index('idx_achievements_featured').on(table.isFeatured),
 }));
 
+export const galleryItems = pgTable('gallery_items', {
+  id: text('id').primaryKey(),
+  title: text('title').notNull(),
+  alt: text('alt').notNull(),
+  category: text('category').notNull().default('photo'),
+  isFeatured: boolean('is_featured').notNull().default(false),
+  image: jsonb('image').$type<{ url: string; config?: ImageConfig }>().notNull(),
+  position: integer('position').notNull().default(0),
+  createdAt: integer('created_at').notNull().default(sql`extract(epoch from now())::int`),
+  updatedAt: integer('updated_at').notNull().default(sql`extract(epoch from now())::int`),
+}, (table) => ({
+  categoryIdx: index('idx_gallery_items_category').on(table.category),
+  featuredIdx: index('idx_gallery_items_featured').on(table.isFeatured),
+  positionIdx: index('idx_gallery_items_position').on(table.position),
+}));
+
+export const activities = pgTable('activities', {
+  id: text('id').primaryKey(),
+  title: text('title').notNull(),
+  date: text('date'),
+  description: text('description').notNull(),
+  image: jsonb('image').$type<{ url: string; config?: ImageConfig }>().notNull(),
+  position: integer('position').notNull().default(0),
+  createdAt: integer('created_at').notNull().default(sql`extract(epoch from now())::int`),
+  updatedAt: integer('updated_at').notNull().default(sql`extract(epoch from now())::int`),
+}, (table) => ({
+  positionIdx: index('idx_activities_position').on(table.position),
+}));
+
 export const programsRelations = relations(programs, ({ many }) => ({
   semesters: many(semesters),
   members: many(members),

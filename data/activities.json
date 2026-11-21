@@ -1,0 +1,66 @@
+[
+  {
+    "id": "ddp0",
+    "title": "DDP0",
+    "date": "",
+    "description": "Sebelum masuk kelas pemrograman, kami coba mengerjakan soal-soal dasar di DDP0. Program ini disiapkan Arung 2025 untuk mahasiswa baru Fasilkom 2026.",
+    "image": {
+      "url": "/images/about/highlight1.png",
+      "config": {
+        "x": 50,
+        "y": 50,
+        "zoom": 1,
+        "aspect": "16:9"
+      }
+    },
+    "position": 0
+  },
+  {
+    "id": "pkkmb",
+    "title": "PKKMB",
+    "date": "",
+    "description": "Di PKKMB, kami ikut pengenalan kampus bareng mahasiswa baru dari fakultas lain di UI.",
+    "image": {
+      "url": "/images/about/highlight1.png",
+      "config": {
+        "x": 50,
+        "y": 50,
+        "zoom": 1,
+        "aspect": "16:9"
+      }
+    },
+    "position": 1
+  },
+  {
+    "id": "psaf",
+    "title": "PSAF",
+    "date": "11-13 Agustus 2026",
+    "description": "Kalau PKKMB mengenalkan UI, PSAF membahas kuliah di Fasilkom. Kami lihat kurikulum masing-masing prodi dan ketemu dosen pembimbing akademik.",
+    "image": {
+      "url": "/images/about/highlight1.png",
+      "config": {
+        "x": 50,
+        "y": 50,
+        "zoom": 1,
+        "aspect": "16:9"
+      }
+    },
+    "position": 2
+  },
+  {
+    "id": "pmb",
+    "title": "PMB",
+    "date": "",
+    "description": "Kegiatan penyambutan mahasiswa baru Fasilkom. Di PMB, kami punya waktu buat kenalan dengan teman seangkatan dari prodi lain.",
+    "image": {
+      "url": "/images/about/highlight1.png",
+      "config": {
+        "x": 50,
+        "y": 50,
+        "zoom": 1,
+        "aspect": "16:9"
+      }
+    },
+    "position": 3
+  }
+]

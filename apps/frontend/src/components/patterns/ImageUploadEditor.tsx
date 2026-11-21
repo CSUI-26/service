@@ -3,7 +3,7 @@ import type { ImageConfig } from '@zenith/shared';
 import { Image as ImageIcon, Loader2, Lock, RotateCcw, RotateCw, Unlock, Upload } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { renderCroppedWebp } from '@/components/patterns/imageCrop';
-import { uploadMedia } from '@/lib/api';
+import { uploadMedia, type UploadEndpoint } from '@/lib/api';
 
 export interface ImageUploadValue {
   url: string;
@@ -14,8 +14,9 @@ export interface ImageUploadEditorProps {
   value: ImageUploadValue;
   onChange: (next: ImageUploadValue) => void;
   onCommit?: (next: ImageUploadValue) => Promise<void> | void;
-  endpoint: '/upload/avatar' | '/upload/achievement';
+  endpoint: UploadEndpoint;
   uploadParams?: Record<string, string>;
+  defaultAspect?: string;
   label?: string;
 }
 
@@ -43,6 +44,7 @@ export function ImageUploadEditor({
   onCommit,
   endpoint,
   uploadParams,
+  defaultAspect = '1:1',
   label,
 }: ImageUploadEditorProps): React.JSX.Element {
   const fileInputId = useId();
@@ -88,12 +90,13 @@ export function ImageUploadEditor({
     };
   }, []);
 
+  const resolvedAspect = defaultAspect || '1:1';
   const activeConfig: ImageConfig = {
     x: value.config?.x ?? 50,
     y: value.config?.y ?? 50,
     zoom: value.config?.zoom ?? 1,
     rotate: value.config?.rotate ?? 0,
-    aspect: '1:1',
+    aspect: resolvedAspect,
   };
 
   const previewSrc = pendingFileUrl ?? value.url;
@@ -128,7 +131,7 @@ export function ImageUploadEditor({
     }
     onChange({
       url: value.url,
-      config: { ...activeConfig, ...partial, aspect: '1:1' },
+      config: { ...activeConfig, ...partial, aspect: resolvedAspect },
     });
   }
 

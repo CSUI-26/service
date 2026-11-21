@@ -21,6 +21,11 @@ export const ImageFieldSchema = z.object({
   config: ImageConfigSchema.optional(),
 });
 
+export const RequiredImageFieldSchema = z.object({
+  url: optionalImageUrl.refine((val) => val.trim().length > 0, 'Image URL is required'),
+  config: ImageConfigSchema.optional(),
+});
+
 // Program schemas
 export const CourseSchema = z.object({
   id: z.number().int().positive().optional(),
@@ -187,6 +192,76 @@ export const PublicAchievementsResponseSchema = z.object({
   yearlyAchievementsByYear: z.array(YearGroupSchema),
 });
 
+// Gallery schemas
+export const GalleryCategorySchema = z.enum(['photo', 'hero', 'highlight']);
+
+export const GalleryItemSchema = z.object({
+  id: z.string().min(1, 'Gallery item ID required'),
+  title: z.string().min(1, 'Title required'),
+  alt: z.string().min(1, 'Alt text required'),
+  category: GalleryCategorySchema,
+  isFeatured: z.boolean(),
+  image: RequiredImageFieldSchema,
+  position: z.number().int().min(0),
+});
+
+export const GalleryItemCreateSchema = z.object({
+  id: z.string().min(1, 'Gallery item ID required'),
+  title: z.string().min(1, 'Title required'),
+  alt: z.string().min(1, 'Alt text required'),
+  category: GalleryCategorySchema.default('photo'),
+  isFeatured: z.boolean().default(false),
+  image: RequiredImageFieldSchema,
+  position: z.number().int().min(0).default(0),
+});
+
+export const GalleryItemUpdateSchema = z
+  .object({
+    title: z.string().min(1, 'Title required'),
+    alt: z.string().min(1, 'Alt text required'),
+    category: GalleryCategorySchema,
+    isFeatured: z.boolean(),
+    image: RequiredImageFieldSchema,
+    position: z.number().int().min(0),
+  })
+  .partial();
+
+export const PublicGalleryResponseSchema = z.object({
+  photos: z.array(GalleryItemSchema),
+  heroes: z.array(GalleryItemSchema),
+  highlights: z.array(GalleryItemSchema),
+  featuredPhoto: GalleryItemSchema.nullable(),
+});
+
+// Activity schemas
+export const ActivitySchema = z.object({
+  id: z.string().min(1, 'Activity ID required'),
+  title: z.string().min(1, 'Activity title required'),
+  date: z.string(),
+  description: z.string().min(1, 'Description required'),
+  image: RequiredImageFieldSchema,
+  position: z.number().int().min(0),
+});
+
+export const ActivityCreateSchema = z.object({
+  id: z.string().min(1, 'Activity ID required'),
+  title: z.string().min(1, 'Activity title required'),
+  date: z.string().default(''),
+  description: z.string().min(1, 'Description required'),
+  image: RequiredImageFieldSchema,
+  position: z.number().int().min(0).default(0),
+});
+
+export const ActivityUpdateSchema = z
+  .object({
+    title: z.string().min(1, 'Activity title required'),
+    date: z.string(),
+    description: z.string().min(1, 'Description required'),
+    image: RequiredImageFieldSchema,
+    position: z.number().int().min(0),
+  })
+  .partial();
+
 // Types
 export type ImageConfig = z.infer<typeof ImageConfigSchema>;
 export type ImageField = z.infer<typeof ImageFieldSchema>;
@@ -207,3 +282,11 @@ export type LatestAchievement = z.infer<typeof LatestAchievementSchema>;
 export type YearlyAchievement = z.infer<typeof YearlyAchievementSchema>;
 export type YearGroup = z.infer<typeof YearGroupSchema>;
 export type PublicAchievementsResponse = z.infer<typeof PublicAchievementsResponseSchema>;
+export type GalleryCategory = z.infer<typeof GalleryCategorySchema>;
+export type GalleryItem = z.infer<typeof GalleryItemSchema>;
+export type GalleryItemCreate = z.infer<typeof GalleryItemCreateSchema>;
+export type GalleryItemUpdate = z.infer<typeof GalleryItemUpdateSchema>;
+export type PublicGalleryResponse = z.infer<typeof PublicGalleryResponseSchema>;
+export type Activity = z.infer<typeof ActivitySchema>;
+export type ActivityCreate = z.infer<typeof ActivityCreateSchema>;
+export type ActivityUpdate = z.infer<typeof ActivityUpdateSchema>;

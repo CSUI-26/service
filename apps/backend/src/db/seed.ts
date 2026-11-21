@@ -3,9 +3,9 @@ import { randomUUID } from 'node:crypto';
 import { readFileSync, existsSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
-import type { ImageConfig } from '@zenith/shared';
+import type { GalleryCategory, ImageConfig } from '@zenith/shared';
 import { db } from './client.js';
-import { programs, semesters, courses, members, achievements } from './schema.js';
+import { programs, semesters, courses, members, achievements, galleryItems, activities } from './schema.js';
 import { parseImageHeader } from '../lib/image.js';
 import { buildPublicUrl, headObject, putObject } from '../services/storage.js';
 
@@ -16,6 +16,8 @@ const DATA_DIR = existsSync(join(__dirname, '../../../../data'))
 const ACADEMIC_FILE = join(DATA_DIR, 'academic.json');
 const MEMBERS_FILE = join(DATA_DIR, 'members.json');
 const ACHIEVEMENTS_FILE = join(DATA_DIR, 'achievements.json');
+const GALLERY_FILE = join(DATA_DIR, 'gallery.json');
+const ACTIVITIES_FILE = join(DATA_DIR, 'activities.json');
 
 interface Course { name: string; code?: string; sks: number; description?: string; prerequisites?: string[]; materialUrl?: string; }
 interface Semester { semester: number | string; courses: Course[]; }
@@ -33,6 +35,23 @@ interface SeedAchievement {
   members?: string[];
   description?: string;
   showOverlay?: boolean;
+  position?: number;
+}
+interface SeedGalleryItem {
+  id: string;
+  title: string;
+  alt: string;
+  category: GalleryCategory;
+  isFeatured?: boolean;
+  image: MemberFoto;
+  position?: number;
+}
+interface SeedActivity {
+  id: string;
+  title: string;
+  date?: string;
+  description: string;
+  image: MemberFoto;
   position?: number;
 }
 
@@ -236,11 +255,74 @@ export async function seedAchievements() {
   console.log(`Seeded ${rows.length} achievements`);
 }
 
+export async function seedGallery() {
+  if (!existsSync(GALLERY_FILE)) {
+    console.log('gallery.json not found, skipping gallery seed');
+    return;
+  }
+
+  const items: SeedGalleryItem[] = JSON.parse(readFileSync(GALLERY_FILE, 'utf-8'));
+  await db.delete(galleryItems);
+
+  const rows = await mapWithConcurrency(items, 5, async (item, idx) => {
+    const imageUrl = item.image?.url
+      ? await migrateImageToS3(item.image.url, `gallery/${item.id}`)
+      : '';
+    return {
+      id: item.id,
+      title: item.title,
+      alt: item.alt,
+      category: item.category,
+      isFeatured: item.isFeatured ?? false,
+      image: { ...item.image, url: imageUrl },
+      position: item.position ?? idx,
+    };
+  });
+
+  for (let i = 0; i < rows.length; i += 100) {
+    await db.insert(galleryItems).values(rows.slice(i, i + 100));
+  }
+
+  console.log(`Seeded ${rows.length} gallery items`);
+}
+
+export async function seedActivities() {
+  if (!existsSync(ACTIVITIES_FILE)) {
+    console.log('activities.json not found, skipping activities seed');
+    return;
+  }
+
+  const items: SeedActivity[] = JSON.parse(readFileSync(ACTIVITIES_FILE, 'utf-8'));
+  await db.delete(activities);
+
+  const rows = await mapWithConcurrency(items, 5, async (item, idx) => {
+    const imageUrl = item.image?.url
+      ? await migrateImageToS3(item.image.url, `activities/${item.id}`)
+      : '';
+    return {
+      id: item.id,
+      title: item.title,
+      date: item.date || null,
+      description: item.description,
+      image: { ...item.image, url: imageUrl },
+      position: item.position ?? idx,
+    };
+  });
+
+  for (let i = 0; i < rows.length; i += 100) {
+    await db.insert(activities).values(rows.slice(i, i + 100));
+  }
+
+  console.log(`Seeded ${rows.length} activities`);
+}
+
 async function main() {
   console.log('Starting database seed...');
   await seedPrograms();
   await seedMembers();
   await seedAchievements();
+  await seedGallery();
+  await seedActivities();
   console.log('Seed completed!');
   process.exit(0);
 }

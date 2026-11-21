@@ -64,18 +64,46 @@ export async function uploadRoutes(fastify: FastifyInstance) {
     },
   );
 
+function sanitizeUploadSlug(rawId: string | undefined, fallback: string): string {
+  return (
+    (rawId || fallback)
+      .trim()
+      .toLowerCase()
+      .replace(/[^a-z0-9_-]+/g, '-')
+      .replace(/^-+|-+$/g, '') || fallback
+  );
+}
+
   fastify.post(
     '/api/v1/upload/achievement',
     { preHandler: [blockUnauthorized(), adminOnly()] },
     async (req, reply) => {
       const { id } = req.query as { id?: string };
-      const safeId = (id || 'banner')
-        .trim()
-        .toLowerCase()
-        .replace(/[^a-z0-9_-]+/g, '-')
-        .replace(/^-+|-+$/g, '') || 'banner';
+      const safeId = sanitizeUploadSlug(id, 'banner');
 
       return handleImageUpload(req, reply, (ext) => `achievements/${safeId}-${Date.now()}.${ext}`);
+    },
+  );
+
+  fastify.post(
+    '/api/v1/upload/gallery',
+    { preHandler: [blockUnauthorized(), adminOnly()] },
+    async (req, reply) => {
+      const { id } = req.query as { id?: string };
+      const safeId = sanitizeUploadSlug(id, 'gallery');
+
+      return handleImageUpload(req, reply, (ext) => `gallery/${safeId}-${Date.now()}.${ext}`);
+    },
+  );
+
+  fastify.post(
+    '/api/v1/upload/activity',
+    { preHandler: [blockUnauthorized(), adminOnly()] },
+    async (req, reply) => {
+      const { id } = req.query as { id?: string };
+      const safeId = sanitizeUploadSlug(id, 'activity');
+
+      return handleImageUpload(req, reply, (ext) => `activities/${safeId}-${Date.now()}.${ext}`);
     },
   );
 
