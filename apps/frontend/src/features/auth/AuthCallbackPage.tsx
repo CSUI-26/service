@@ -90,21 +90,25 @@ export default function AuthCallbackPage() {
 
   if (state.status === 'loading') {
     return (
-      <main className="flex min-h-screen items-center justify-center bg-background p-4">
-        <Card className="w-full max-w-sm">
-          <CardHeader className="space-y-1.5">
-            <p className="text-[11px] font-medium uppercase tracking-[0.2em] text-muted-foreground">
+      <main className="relative flex min-h-screen items-center justify-center overflow-hidden p-4">
+        <div className="zenith-aura" aria-hidden="true" />
+        <div className="zenith-auth-grid pointer-events-none fixed inset-0 -z-10 opacity-45" aria-hidden="true" />
+        <Card className="surface-card zenith-fade-up w-full max-w-sm shadow-2xl">
+          <CardHeader className="space-y-2 pb-4">
+            <p className="font-mono text-[11px] font-medium uppercase tracking-[0.22em] text-muted-foreground">
               CSUI · Studio
             </p>
-            <CardTitle className="flex items-center gap-2 text-2xl font-semibold tracking-tight">
-              <span>Zenith</span>
+            <CardTitle className="flex items-center gap-2.5">
+              <span className="zenith-wordmark zenith-wordmark-animated inline-block pr-1 text-3xl tracking-tight">
+                ZENITH
+              </span>
               <Loader2 className="size-4 animate-spin text-muted-foreground" aria-hidden="true" />
             </CardTitle>
             <CardDescription className="text-sm leading-relaxed">
               Signing you in with your SSO-UI account...
             </CardDescription>
           </CardHeader>
-          <CardContent className="space-y-2.5 pt-2">
+          <CardContent className="space-y-2.5 pt-1">
             <Skeleton className="h-3.5 w-3/4" />
             <Skeleton className="h-3.5 w-1/2" />
           </CardContent>
