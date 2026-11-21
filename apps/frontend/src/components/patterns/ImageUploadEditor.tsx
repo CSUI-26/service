@@ -1,6 +1,6 @@
 import { useEffect, useId, useRef, useState } from 'react';
 import type { ImageConfig } from '@zenith/shared';
-import { Image as ImageIcon, Loader2, RotateCcw, RotateCw, Upload } from 'lucide-react';
+import { Image as ImageIcon, Loader2, Lock, RotateCcw, RotateCw, Unlock, Upload } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { uploadMedia } from '@/lib/api';
 
@@ -116,6 +116,8 @@ export function ImageUploadEditor({
 }: ImageUploadEditorProps): React.JSX.Element {
   const fileInputId = useId();
   const imgRef = useRef<HTMLImageElement | null>(null);
+  const prevUrlRef = useRef<string>(value.url);
+  const lockHintTimerRef = useRef<number | null>(null);
   const dragRef = useRef<{
     pointerId: number;
     startX: number;
@@ -125,10 +127,19 @@ export function ImageUploadEditor({
   } | null>(null);
 
   const [pendingFileUrl, setPendingFileUrl] = useState<string | null>(null);
+  const [isLocked, setIsLocked] = useState<boolean>(() => Boolean(value.url));
+  const [showLockHint, setShowLockHint] = useState(false);
   const [needsCommit, setNeedsCommit] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!pendingFileUrl && !prevUrlRef.current && value.url) {
+      setIsLocked(true);
+    }
+    prevUrlRef.current = value.url;
+  }, [value.url, pendingFileUrl]);
 
   useEffect(() => {
     return () => {
@@ -137,6 +148,14 @@ export function ImageUploadEditor({
       }
     };
   }, [pendingFileUrl]);
+
+  useEffect(() => {
+    return () => {
+      if (lockHintTimerRef.current !== null) {
+        window.clearTimeout(lockHintTimerRef.current);
+      }
+    };
+  }, []);
 
   const activeConfig: ImageConfig = {
     x: value.config?.x ?? 50,
@@ -148,6 +167,29 @@ export function ImageUploadEditor({
 
   const previewSrc = pendingFileUrl ?? value.url;
   const rotateDeg = activeConfig.rotate ?? 0;
+
+  function flashLockHint() {
+    setShowLockHint(true);
+    if (lockHintTimerRef.current !== null) {
+      window.clearTimeout(lockHintTimerRef.current);
+    }
+    lockHintTimerRef.current = window.setTimeout(() => {
+      setShowLockHint(false);
+      lockHintTimerRef.current = null;
+    }, 1500);
+  }
+
+  function toggleLock() {
+    setIsLocked((prev) => {
+      const next = !prev;
+      if (next) {
+        dragRef.current = null;
+        setIsDragging(false);
+      }
+      setShowLockHint(false);
+      return next;
+    });
+  }
 
   function emitConfig(partial: Partial<ImageConfig>) {
     if (!pendingFileUrl && onCommit) {
@@ -171,12 +213,21 @@ export function ImageUploadEditor({
 
     setError(null);
     setNeedsCommit(false);
+    setShowLockHint(false);
+    setIsLocked(false);
     const objectUrl = URL.createObjectURL(file);
     setPendingFileUrl(objectUrl);
   }
 
   function handlePointerDown(e: React.PointerEvent<HTMLDivElement>) {
     if (!previewSrc) return;
+    if ((e.target as HTMLElement).closest('button')) return;
+
+    if (isLocked) {
+      flashLockHint();
+      return;
+    }
+
     e.preventDefault();
     e.currentTarget.setPointerCapture?.(e.pointerId);
     dragRef.current = {
@@ -190,6 +241,7 @@ export function ImageUploadEditor({
   }
 
   function handlePointerMove(e: React.PointerEvent<HTMLDivElement>) {
+    if (isLocked) return;
     const drag = dragRef.current;
     if (!drag || drag.pointerId !== e.pointerId) return;
 
@@ -233,6 +285,7 @@ export function ImageUploadEditor({
       }
       setPendingFileUrl(null);
       setNeedsCommit(false);
+      setIsLocked(true);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to upload image.');
     } finally {
@@ -247,6 +300,7 @@ export function ImageUploadEditor({
     try {
       await onCommit({ url: value.url, config: activeConfig });
       setNeedsCommit(false);
+      setIsLocked(true);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to save image.');
     } finally {
@@ -256,6 +310,7 @@ export function ImageUploadEditor({
 
   const panXPercent = (50 - activeConfig.x) * Math.max(0, activeConfig.zoom - 1);
   const panYPercent = (50 - activeConfig.y) * Math.max(0, activeConfig.zoom - 1);
+  const showCropControls = !previewSrc || !isLocked;
 
   return (
     <div className="space-y-3">
@@ -266,23 +321,75 @@ export function ImageUploadEditor({
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerEnd}
         onPointerCancel={handlePointerEnd}
-        style={{ aspectRatio: aspectToCss(activeConfig.aspect) }}
-        className={`relative w-full max-w-sm overflow-hidden rounded-lg border border-border bg-muted select-none ${
-          previewSrc ? (isDragging ? 'cursor-grabbing touch-none' : 'cursor-grab touch-none') : ''
+        style={{
+          aspectRatio: aspectToCss(activeConfig.aspect),
+          touchAction: previewSrc && isLocked ? 'pan-y' : 'none',
+        }}
+        className={`relative w-full max-w-sm overflow-hidden rounded-2xl border border-border bg-muted select-none ${
+          previewSrc
+            ? isLocked
+              ? 'cursor-default'
+              : isDragging
+                ? 'cursor-grabbing touch-none'
+                : 'cursor-grab touch-none'
+            : ''
         }`}
       >
         {previewSrc ? (
-          <img
-            ref={imgRef}
-            src={previewSrc}
-            alt="Crop preview"
-            draggable={false}
-            style={{
-              objectPosition: `${activeConfig.x}% ${activeConfig.y}%`,
-              transform: `translate(${panXPercent}%, ${panYPercent}%) scale(${activeConfig.zoom}) rotate(${rotateDeg}deg)`,
-            }}
-            className="h-full w-full object-cover transition-transform duration-150 motion-reduce:transition-none"
-          />
+          <>
+            <img
+              ref={imgRef}
+              src={previewSrc}
+              alt="Crop preview"
+              draggable={false}
+              style={{
+                objectPosition: `${activeConfig.x}% ${activeConfig.y}%`,
+                transform: `translate(${panXPercent}%, ${panYPercent}%) scale(${activeConfig.zoom}) rotate(${rotateDeg}deg)`,
+              }}
+              className="h-full w-full object-cover transition-transform duration-150 motion-reduce:transition-none"
+            />
+
+            <div className="absolute inset-x-2.5 top-2.5 flex items-center justify-between gap-2">
+              <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-black/80 px-2.5 py-1 text-[11px] font-medium text-white backdrop-blur-md">
+                <span
+                  className={`size-2 rounded-full ${
+                    isLocked ? 'bg-emerald-400' : 'animate-pulse bg-amber-400'
+                  }`}
+                />
+                <span>{isLocked ? 'Terkunci' : 'Terbuka'}</span>
+              </span>
+
+              <button
+                type="button"
+                aria-pressed={isLocked}
+                aria-label={isLocked ? 'Buka Kunci Foto' : 'Kunci Foto'}
+                onPointerDown={(e) => e.stopPropagation()}
+                onClick={toggleLock}
+                className="inline-flex min-h-9 items-center gap-1.5 rounded-full border border-white/25 bg-black/85 px-3 py-1 text-[11px] font-semibold text-white shadow transition hover:bg-black active:scale-95"
+              >
+                {isLocked ? (
+                  <Lock className="size-3 text-emerald-400" aria-hidden="true" />
+                ) : (
+                  <Unlock className="size-3 text-amber-400" aria-hidden="true" />
+                )}
+                <span>{isLocked ? 'Buka Kunci Foto' : 'Kunci Foto'}</span>
+              </button>
+            </div>
+
+            {showLockHint ? (
+              <div
+                role="alert"
+                className="pointer-events-none absolute inset-0 flex items-center justify-center bg-black/70 p-4 text-center backdrop-blur-xs"
+              >
+                <div className="flex flex-col items-center gap-1.5 rounded-xl border border-amber-400/50 bg-background/95 px-3.5 py-2.5 text-xs font-medium text-foreground shadow-lg">
+                  <Lock className="size-4 text-amber-400" aria-hidden="true" />
+                  <span>
+                    Foto masih dikunci. Tekan <strong>Buka Kunci Foto</strong> untuk mengatur posisi.
+                  </span>
+                </div>
+              </div>
+            ) : null}
+          </>
         ) : (
           <div className="flex h-full w-full flex-col items-center justify-center gap-2 p-4 text-center text-muted-foreground">
             <ImageIcon className="h-6 w-6" aria-hidden="true" />
@@ -307,62 +414,68 @@ export function ImageUploadEditor({
           </label>
         </Button>
 
-        <Button
-          type="button"
-          variant="outline"
-          size="icon-sm"
-          aria-label="Rotate 90 degrees"
-          onClick={() => emitConfig({ rotate: normalizeRotate(rotateDeg + 90) })}
-        >
-          <RotateCw className="h-3.5 w-3.5" aria-hidden="true" />
-        </Button>
+        {showCropControls ? (
+          <>
+            <Button
+              type="button"
+              variant="outline"
+              size="icon-sm"
+              aria-label="Rotate 90 degrees"
+              onClick={() => emitConfig({ rotate: normalizeRotate(rotateDeg + 90) })}
+            >
+              <RotateCw className="h-3.5 w-3.5" aria-hidden="true" />
+            </Button>
 
-        <Button
-          type="button"
-          variant="outline"
-          size="icon-sm"
-          aria-label="Reset position"
-          onClick={() => emitConfig({ x: 50, y: 50, zoom: 1, rotate: 0 })}
-        >
-          <RotateCcw className="h-3.5 w-3.5" aria-hidden="true" />
-        </Button>
+            <Button
+              type="button"
+              variant="outline"
+              size="icon-sm"
+              aria-label="Reset position"
+              onClick={() => emitConfig({ x: 50, y: 50, zoom: 1, rotate: 0 })}
+            >
+              <RotateCcw className="h-3.5 w-3.5" aria-hidden="true" />
+            </Button>
+          </>
+        ) : null}
       </div>
 
-      <div className="grid max-w-sm gap-2 sm:grid-cols-2">
-        <label className="flex flex-col gap-1 text-xs text-muted-foreground">
-          <span className="flex items-center justify-between">
-            <span>Zoom</span>
-            <span className="font-mono tabular-nums">{activeConfig.zoom.toFixed(2)}x</span>
-          </span>
-          <input
-            type="range"
-            aria-label="Zoom image"
-            min="1"
-            max="3"
-            step="0.05"
-            value={activeConfig.zoom}
-            onChange={(e) => emitConfig({ zoom: Number(e.target.value) })}
-            className="w-full accent-primary"
-          />
-        </label>
+      {showCropControls ? (
+        <div className="grid max-w-sm gap-2 sm:grid-cols-2">
+          <label className="flex flex-col gap-1 text-xs text-muted-foreground">
+            <span className="flex items-center justify-between">
+              <span>Zoom</span>
+              <span className="font-mono tabular-nums">{activeConfig.zoom.toFixed(2)}x</span>
+            </span>
+            <input
+              type="range"
+              aria-label="Zoom image"
+              min="1"
+              max="3"
+              step="0.05"
+              value={activeConfig.zoom}
+              onChange={(e) => emitConfig({ zoom: Number(e.target.value) })}
+              className="w-full accent-primary"
+            />
+          </label>
 
-        <label className="flex flex-col gap-1 text-xs text-muted-foreground">
-          <span className="flex items-center justify-between">
-            <span>Rotation</span>
-            <span className="font-mono tabular-nums">{rotateDeg}deg</span>
-          </span>
-          <input
-            type="range"
-            aria-label="Fine rotation"
-            min="0"
-            max="360"
-            step="1"
-            value={rotateDeg}
-            onChange={(e) => emitConfig({ rotate: normalizeRotate(Number(e.target.value)) })}
-            className="w-full accent-primary"
-          />
-        </label>
-      </div>
+          <label className="flex flex-col gap-1 text-xs text-muted-foreground">
+            <span className="flex items-center justify-between">
+              <span>Rotation</span>
+              <span className="font-mono tabular-nums">{rotateDeg}deg</span>
+            </span>
+            <input
+              type="range"
+              aria-label="Fine rotation"
+              min="0"
+              max="360"
+              step="1"
+              value={rotateDeg}
+              onChange={(e) => emitConfig({ rotate: normalizeRotate(Number(e.target.value)) })}
+              className="w-full accent-primary"
+            />
+          </label>
+        </div>
+      ) : null}
 
       {pendingFileUrl ? (
         <div className="flex max-w-sm items-center gap-2">

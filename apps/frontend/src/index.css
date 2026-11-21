@@ -16,65 +16,75 @@
   --card-foreground: #0f172a;
   --popover: #ffffff;
   --popover-foreground: #0f172a;
-  --primary: #0284c7;
+  --primary: #2563eb;
   --primary-foreground: #ffffff;
-  --secondary: #0f172a;
-  --secondary-foreground: #ffffff;
+  --secondary: #f1f5f9;
+  --secondary-foreground: #0f172a;
   --muted: #f1f5f9;
   --muted-foreground: #475569;
-  --accent: #e0f2fe;
-  --accent-foreground: #0369a1;
+  --accent: #eff6ff;
+  --accent-foreground: #1d4ed8;
   --destructive: #dc2626;
   --border: #e2e8f0;
   --input: #e2e8f0;
-  --ring: #0284c7;
-  --chart-1: #0284c7;
+  --ring: #2563eb;
+  --chart-1: #2563eb;
   --chart-2: #16a34a;
   --chart-3: #dc2626;
   --chart-4: #cbd5e1;
   --chart-5: #475569;
   --sidebar: #ffffff;
   --sidebar-foreground: #0f172a;
-  --sidebar-primary: #0284c7;
+  --sidebar-primary: #2563eb;
   --sidebar-primary-foreground: #ffffff;
   --sidebar-accent: #f1f5f9;
   --sidebar-accent-foreground: #0f172a;
   --sidebar-border: #e2e8f0;
-  --sidebar-ring: #0284c7;
+  --sidebar-ring: #2563eb;
+
+  --bg-glass: rgba(255, 255, 255, 0.92);
+  --bg-elevated: #f1f5f9;
+  --border-subtle: #e2e8f0;
+  --border-strong: #cbd5e1;
 }
 
 .dark {
-  --background: #0b0f19;
+  --background: #05060d;
   --foreground: #f8fafc;
-  --card: #111827;
+  --card: #0c101d;
   --card-foreground: #f8fafc;
-  --popover: #111827;
+  --popover: #0c101d;
   --popover-foreground: #f8fafc;
-  --primary: #38bdf8;
-  --primary-foreground: #082f49;
-  --secondary: #1e293b;
+  --primary: #3b82f6;
+  --primary-foreground: #ffffff;
+  --secondary: #12182b;
   --secondary-foreground: #f8fafc;
-  --muted: #1e293b;
+  --muted: #12182b;
   --muted-foreground: #94a3b8;
-  --accent: #1e293b;
-  --accent-foreground: #38bdf8;
+  --accent: #12182b;
+  --accent-foreground: #60a5fa;
   --destructive: #ef4444;
-  --border: #1e293b;
-  --input: #1e293b;
-  --ring: #38bdf8;
-  --chart-1: #38bdf8;
+  --border: rgba(255, 255, 255, 0.1);
+  --input: rgba(255, 255, 255, 0.12);
+  --ring: #3b82f6;
+  --chart-1: #3b82f6;
   --chart-2: #22c55e;
   --chart-3: #ef4444;
-  --chart-4: #1e293b;
+  --chart-4: #12182b;
   --chart-5: #94a3b8;
-  --sidebar: #0d1322;
+  --sidebar: #0c101d;
   --sidebar-foreground: #f8fafc;
-  --sidebar-primary: #38bdf8;
-  --sidebar-primary-foreground: #082f49;
-  --sidebar-accent: #1e293b;
+  --sidebar-primary: #3b82f6;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #12182b;
   --sidebar-accent-foreground: #f8fafc;
-  --sidebar-border: #1e293b;
-  --sidebar-ring: #38bdf8;
+  --sidebar-border: rgba(255, 255, 255, 0.1);
+  --sidebar-ring: #3b82f6;
+
+  --bg-glass: rgba(12, 16, 29, 0.85);
+  --bg-elevated: #12182b;
+  --border-subtle: rgba(255, 255, 255, 0.1);
+  --border-strong: rgba(255, 255, 255, 0.22);
 }
 
 @theme inline {
@@ -137,6 +147,7 @@
 
   body {
     @apply bg-background text-foreground antialiased;
+    overflow-x: hidden;
   }
 
   h1,
@@ -150,6 +161,52 @@
   kbd {
     font-family: inherit;
   }
+}
+
+/* Zenith Obsidian ambient cobalt & crimson aura */
+.zenith-aura {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background:
+    radial-gradient(circle at 8% 92%, rgba(239, 68, 68, 0.05), transparent 50%),
+    radial-gradient(circle at 92% 88%, rgba(37, 99, 235, 0.07), transparent 55%),
+    var(--background);
+}
+
+.dark .zenith-aura {
+  background:
+    radial-gradient(circle at 8% 92%, rgba(239, 68, 68, 0.15), transparent 50%),
+    radial-gradient(circle at 92% 88%, rgba(37, 99, 235, 0.22), transparent 55%),
+    radial-gradient(circle at 50% 0%, rgba(59, 130, 246, 0.08), transparent 45%),
+    var(--background);
+}
+
+.zenith-wordmark {
+  font-style: italic;
+  font-weight: 850;
+  letter-spacing: -0.04em;
+  background-image: linear-gradient(95deg, #1d4ed8 0%, #0f172a 52%, #dc2626 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.dark .zenith-wordmark {
+  background-image: linear-gradient(95deg, #60a5fa 0%, #ffffff 52%, #f87171 100%);
+}
+
+.surface-card {
+  background: var(--bg-glass);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid var(--border-subtle);
+}
+
+.surface-elevated {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-subtle);
 }
 
 @media (prefers-reduced-motion: reduce) {

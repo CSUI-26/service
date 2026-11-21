@@ -1,10 +1,18 @@
-﻿import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router';
 import { toast } from 'sonner';
-import { BookOpen, Plus, RotateCcw } from 'lucide-react';
+import { BookOpen, Pencil, Plus, RotateCcw, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
 import { EmptyState } from '@/components/patterns/EmptyState';
 import { ListState } from '@/components/patterns/ListState';
 import { PageHeader } from '@/components/patterns/PageHeader';
@@ -19,7 +27,6 @@ import { useResourceList } from '@/hooks/useResourceList';
 import { api } from '@/lib/api';
 import { coursesApi } from '@/features/courses/api';
 import { CourseFormDialog } from '@/features/courses/CourseFormDialog';
-import { CourseRowCard } from '@/features/courses/CourseRowCard';
 import type { CourseFormValues } from '@/features/courses/schema';
 import type { Course, CourseRow, ProgramOption } from '@/features/courses/types';
 import type { Program } from '@/features/programs/types';
@@ -188,7 +195,7 @@ export default function CoursesPage() {
   };
 
   return (
-    <>
+    <div className="space-y-4">
       <PageHeader
         title="Courses"
         description={
@@ -291,16 +298,65 @@ export default function CoursesPage() {
           />
         }
       >
-        <div className="space-y-2">
-          {list.data.map((row, index) => (
-            <CourseRowCard
-              key={row.course.id ?? `baru-${index}`}
-              row={row}
-              onEdit={openEdit}
-              onDelete={setDeleting}
-            />
-          ))}
+        <div className="overflow-hidden rounded-xl border border-border bg-card">
+          <Table className="text-xs">
+            <TableHeader className="bg-muted/50 text-[11px] uppercase text-muted-foreground">
+              <TableRow>
+                <TableHead className="px-3 font-mono">Code</TableHead>
+                <TableHead className="px-3">Course Name</TableHead>
+                <TableHead className="px-3">Study Program</TableHead>
+                <TableHead className="px-3 font-mono">Term</TableHead>
+                <TableHead className="px-3 font-mono">Credits</TableHead>
+                <TableHead className="px-3 text-right">Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {list.data.map((row, index) => (
+                <TableRow key={row.course.id ?? `new-${index}`}>
+                  <TableCell className="px-3 font-mono tabular-nums text-primary">
+                    {row.course.code || '-'}
+                  </TableCell>
+                  <TableCell className="px-3 font-medium text-foreground">
+                    {row.course.name}
+                  </TableCell>
+                  <TableCell className="px-3 text-muted-foreground">
+                    {row.programName}
+                  </TableCell>
+                  <TableCell className="px-3 font-mono tabular-nums">
+                    {row.semester}
+                  </TableCell>
+                  <TableCell className="px-3 font-mono tabular-nums">
+                    {row.course.sks} SKS
+                  </TableCell>
+                  <TableCell className="px-3 text-right">
+                    <div className="inline-flex items-center gap-1">
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon-sm"
+                        onClick={() => openEdit(row)}
+                        aria-label={`Edit ${row.course.name}`}
+                      >
+                        <Pencil aria-hidden="true" />
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon-sm"
+                        onClick={() => setDeleting(row)}
+                        aria-label={`Delete ${row.course.name}`}
+                        className="text-destructive hover:text-destructive"
+                      >
+                        <Trash2 aria-hidden="true" />
+                      </Button>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
         </div>
+
         <Paginator
           page={list.page}
           totalPages={list.totalPages}
@@ -333,9 +389,6 @@ export default function CoursesPage() {
         pending={removing}
         onConfirm={confirmDelete}
       />
-    </>
+    </div>
   );
 }
-
-
-

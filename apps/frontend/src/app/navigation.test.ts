@@ -4,13 +4,14 @@ import { findNavItem, isNavItemActive, navItems } from '@/app/navigation';
 describe('isNavItemActive', () => {
   const profile = navItems[0];
 
-  it('aktif hanya untuk path persis saat end', () => {
+  it('matches exact path when end is true', () => {
     expect(isNavItemActive('/my-profile', profile)).toBe(true);
+    expect(isNavItemActive('/my-profile/edit', profile)).toBe(false);
     expect(isNavItemActive('/programs', profile)).toBe(false);
   });
 
-  it('aktif untuk child path', () => {
-    const programs = navItems[1];
+  it('matches child paths when end is not set', () => {
+    const programs = navItems.find((item) => item.to === '/programs')!;
     expect(isNavItemActive('/programs', programs)).toBe(true);
     expect(isNavItemActive('/programs/123', programs)).toBe(true);
     expect(isNavItemActive('/courses', programs)).toBe(false);
@@ -18,7 +19,10 @@ describe('isNavItemActive', () => {
 });
 
 describe('findNavItem', () => {
-  it('menemukan menu dari path', () => {
+  it('resolves member and admin navigation items by path', () => {
+    expect(findNavItem('/my-profile')?.label).toBe('Profilku');
+    expect(findNavItem('/my-profile/edit')?.label).toBe('Edit Profil');
+    expect(findNavItem('/directory')?.label).toBe('Teman Angkatan');
     expect(findNavItem('/courses')?.label).toBe('Courses');
     expect(findNavItem('/halaman-tidak-ada')).toBeUndefined();
   });

@@ -6,7 +6,7 @@ import { AuthProvider } from '@/features/auth/AuthProvider';
 
 export function AppProviders({ children }: { children: ReactNode }) {
   return (
-    <ThemeProvider attribute="class" defaultTheme="light" disableTransitionOnChange>
+    <ThemeProvider attribute="class" defaultTheme="dark" disableTransitionOnChange>
       <AuthProvider>
         <TooltipProvider delayDuration={300}>
           {children}

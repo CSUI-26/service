@@ -69,7 +69,42 @@ describe('ImageUploadEditor', () => {
     expect(screen.queryByRole('button', { name: '16:9' })).not.toBeInTheDocument();
   });
 
-  it('invokes onChange when adjusting zoom, rotating 90 degrees, and resetting', async () => {
+  it('starts locked for saved photos, blocks drag with hint, and unlocks on click', async () => {
+    const user = userEvent.setup();
+    const onChange = vi.fn();
+
+    render(
+      <ImageUploadEditor
+        value={{ url: 'https://cdn.csui.dev/avatar.webp' }}
+        onChange={onChange}
+        endpoint="/upload/avatar"
+      />,
+    );
+
+    const lockButton = screen.getByRole('button', { name: 'Buka Kunci Foto' });
+    expect(lockButton).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.queryByLabelText('Zoom image')).not.toBeInTheDocument();
+
+    const previewStage = screen.getByAltText('Crop preview').parentElement as HTMLElement;
+    expect(previewStage.style.touchAction).toBe('pan-y');
+
+    fireEvent.pointerDown(previewStage, { pointerId: 1, clientX: 100, clientY: 100 });
+    fireEvent.pointerMove(previewStage, { pointerId: 1, clientX: 130, clientY: 70 });
+    fireEvent.pointerUp(previewStage, { pointerId: 1 });
+
+    expect(onChange).not.toHaveBeenCalled();
+    expect(screen.getByRole('alert')).toHaveTextContent(/foto masih dikunci/i);
+
+    await user.click(lockButton);
+
+    expect(screen.getByRole('button', { name: 'Kunci Foto' })).toHaveAttribute('aria-pressed', 'false');
+    expect(screen.getByLabelText('Zoom image')).toBeInTheDocument();
+    expect(screen.getByLabelText('Rotate 90 degrees')).toBeInTheDocument();
+    expect(screen.getByLabelText('Fine rotation')).toBeInTheDocument();
+    expect(screen.getByLabelText('Reset position')).toBeInTheDocument();
+  });
+
+  it('invokes onChange when unlocked and adjusting zoom, rotating 90 degrees, and resetting', async () => {
     const user = userEvent.setup();
     const onChange = vi.fn();
 
@@ -80,6 +115,8 @@ describe('ImageUploadEditor', () => {
         endpoint="/upload/avatar"
       />,
     );
+
+    await user.click(screen.getByRole('button', { name: 'Buka Kunci Foto' }));
 
     fireEvent.change(screen.getByLabelText('Zoom image'), { target: { value: '1.8' } });
     expect(onChange).toHaveBeenLastCalledWith({
@@ -111,7 +148,8 @@ describe('ImageUploadEditor', () => {
     });
   });
 
-  it('locks aspect ratio to 1:1 and updates x/y when dragging the preview', () => {
+  it('locks aspect ratio to 1:1 and updates x/y when unlocked and dragging the preview', async () => {
+    const user = userEvent.setup();
     const onChange = vi.fn();
 
     render(
@@ -124,6 +162,8 @@ describe('ImageUploadEditor', () => {
         endpoint="/upload/achievement"
       />,
     );
+
+    await user.click(screen.getByRole('button', { name: 'Buka Kunci Foto' }));
 
     expect(screen.queryByRole('button', { name: '4:3' })).not.toBeInTheDocument();
     const preview = screen.getByAltText('Crop preview').parentElement as HTMLElement;
@@ -256,7 +296,7 @@ describe('ImageUploadEditor', () => {
     expect(onChange).toHaveBeenLastCalledWith(expectedNext);
   });
 
-  it('commits position/zoom edits directly via Save photo when onCommit is provided', async () => {
+  it('commits position/zoom edits via Save photo and auto-locks on success', async () => {
     const user = userEvent.setup();
     const onChange = vi.fn();
     const onCommit = vi.fn().mockResolvedValue(undefined);
@@ -271,6 +311,8 @@ describe('ImageUploadEditor', () => {
     );
 
     expect(screen.queryByRole('button', { name: /save photo/i })).toBeNull();
+
+    await user.click(screen.getByRole('button', { name: 'Buka Kunci Foto' }));
 
     fireEvent.change(screen.getByLabelText('Zoom image'), {
       target: { value: '1.5' },
@@ -298,6 +340,7 @@ describe('ImageUploadEditor', () => {
     });
 
     expect(screen.queryByRole('button', { name: /save photo/i })).toBeNull();
+    expect(screen.getByRole('button', { name: 'Buka Kunci Foto' })).toHaveAttribute('aria-pressed', 'true');
   });
 });
 

@@ -14,6 +14,8 @@ const CoursesPage = lazy(() => import('@/features/courses/CoursesPage'));
 const MembersPage = lazy(() => import('@/features/members/MembersPage'));
 const AchievementsPage = lazy(() => import('@/features/achievements/AchievementsPage'));
 const MyProfilePage = lazy(() => import('@/features/members/MyProfilePage'));
+const EditProfilePage = lazy(() => import('@/features/members/EditProfilePage'));
+const CohortDirectoryPage = lazy(() => import('@/features/members/CohortDirectoryPage'));
 const NotFoundPage = lazy(() => import('@/app/NotFoundPage'));
 
 export function AppRoutes() {
@@ -37,6 +39,8 @@ export function AppRoutes() {
             <Route path="members" element={<AdminRoute><MembersPage /></AdminRoute>} />
             <Route path="achievements" element={<AdminRoute><AchievementsPage /></AdminRoute>} />
             <Route path="my-profile" element={<MyProfilePage />} />
+            <Route path="my-profile/edit" element={<EditProfilePage />} />
+            <Route path="directory" element={<CohortDirectoryPage />} />
             <Route path="*" element={<NotFoundPage />} />
           </Route>
         </Routes>
@@ -44,4 +48,3 @@ export function AppRoutes() {
     </AppProviders>
   );
 }
-

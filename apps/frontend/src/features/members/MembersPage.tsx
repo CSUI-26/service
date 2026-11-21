@@ -1,20 +1,28 @@
 import { useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
-import { Plus, RotateCcw, Users } from 'lucide-react';
+import { Pencil, Plus, RotateCcw, Trash2, Users } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
 import { EmptyState } from '@/components/patterns/EmptyState';
 import { ListState } from '@/components/patterns/ListState';
 import { PageHeader } from '@/components/patterns/PageHeader';
 import { SearchInput } from '@/components/patterns/SearchInput';
 import { ConfirmDialog } from '@/components/patterns/ConfirmDialog';
-import { CardGridSkeleton } from '@/components/patterns/skeletons';
+import { ListSkeleton } from '@/components/patterns/skeletons';
 import { Kbd } from '@/components/patterns/Kbd';
 import { Paginator } from '@/components/Paginator';
 import { useDocumentTitle } from '@/hooks/useDocumentTitle';
 import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts';
 import { useResourceList } from '@/hooks/useResourceList';
-import { MemberCard } from '@/features/members/MemberCard';
+import { MemberAvatar } from '@/features/members/MemberCard';
 import { MemberFormDialog } from '@/features/members/MemberFormDialog';
 import { membersApi } from '@/features/members/api';
 import { programsApi } from '@/features/programs/api';
@@ -35,7 +43,20 @@ export default function MembersPage() {
   const [programs, setPrograms] = useState<Program[]>([]);
 
   useEffect(() => {
-    programsApi.list().then((res) => setPrograms(res.data)).catch(() => {});
+    let active = true;
+    programsApi
+      .list()
+      .then((res) => {
+        if (active) setPrograms(res.data);
+      })
+      .catch((err) => {
+        if (active) {
+          toast.error(err instanceof Error ? err.message : 'Failed to load study programs');
+        }
+      });
+    return () => {
+      active = false;
+    };
   }, []);
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<Member | null>(null);
@@ -141,7 +162,7 @@ export default function MembersPage() {
   };
 
   return (
-    <>
+    <div className="space-y-4">
       <PageHeader
         title="Members"
         description={
@@ -196,7 +217,7 @@ export default function MembersPage() {
         error={list.error}
         isEmpty={list.data.length === 0}
         onRetry={list.reload}
-        skeleton={<CardGridSkeleton count={6} />}
+        skeleton={<ListSkeleton rows={6} />}
         empty={
           <EmptyState
             icon={Users}
@@ -221,15 +242,68 @@ export default function MembersPage() {
           />
         }
       >
-        <div className="grid gap-3 md:grid-cols-2">
-          {list.data.map((member) => (
-            <MemberCard
-              key={member.npm}
-              member={member}
-              isAdmin={isAdmin}
-              onEdit={openEdit}
-            />
-          ))}
+        <div className="overflow-hidden rounded-xl border border-border bg-card">
+          <Table className="text-xs">
+            <TableHeader className="bg-muted/50 text-[11px] uppercase text-muted-foreground">
+              <TableRow>
+                <TableHead className="px-3 font-mono">NPM</TableHead>
+                <TableHead className="px-3">Name</TableHead>
+                <TableHead className="px-3">Nickname</TableHead>
+                <TableHead className="px-3">Study Program</TableHead>
+                <TableHead className="px-3">Niche</TableHead>
+                {isAdmin ? <TableHead className="px-3 text-right">Actions</TableHead> : null}
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {list.data.map((member) => (
+                <TableRow key={member.npm}>
+                  <TableCell className="px-3 font-mono tabular-nums text-primary">
+                    {member.npm}
+                  </TableCell>
+                  <TableCell className="px-3">
+                    <div className="flex items-center gap-2.5">
+                      <MemberAvatar member={member} size="sm" />
+                      <span className="font-medium text-foreground">{member.name}</span>
+                    </div>
+                  </TableCell>
+                  <TableCell className="px-3 text-muted-foreground">
+                    {member.nama_panggilan}
+                  </TableCell>
+                  <TableCell className="px-3 text-muted-foreground">
+                    {member.major}
+                  </TableCell>
+                  <TableCell className="max-w-52 truncate px-3 text-muted-foreground">
+                    {member.niche || '-'}
+                  </TableCell>
+                  {isAdmin ? (
+                    <TableCell className="px-3 text-right">
+                      <div className="inline-flex items-center gap-1">
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon-sm"
+                          onClick={() => openEdit(member)}
+                          aria-label={`Edit ${member.name}`}
+                        >
+                          <Pencil aria-hidden="true" />
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon-sm"
+                          onClick={() => setDeleting(member)}
+                          aria-label={`Delete ${member.name}`}
+                          className="text-destructive hover:text-destructive"
+                        >
+                          <Trash2 aria-hidden="true" />
+                        </Button>
+                      </div>
+                    </TableCell>
+                  ) : null}
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
         </div>
         <Paginator
           page={list.page}
@@ -267,8 +341,6 @@ export default function MembersPage() {
         pending={removing}
         onConfirm={confirmDelete}
       />
-    </>
+    </div>
   );
 }
-
-

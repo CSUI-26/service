@@ -1,0 +1,1251 @@
+<!DOCTYPE html>
+<html lang="id" class="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ZENITH — Profil &amp; Direktori Angkatan</title>
+  <script src="https://www.gstatic.com/antigravity/web/dev/tailwindcss.min.js"></script>
+  <style>
+    :root {
+      --bg-canvas: #05060d;
+      --bg-surface: #0c101d;
+      --bg-elevated: #12182b;
+      --bg-glass: rgba(12, 16, 29, 0.85);
+      --border-subtle: rgba(255, 255, 255, 0.1);
+      --border-strong: rgba(255, 255, 255, 0.22);
+      --text-main: #f8fafc;
+      --text-muted: #94a3b8;
+      --accent-cobalt: #3b82f6;
+    }
+
+    html.light-theme {
+      --bg-canvas: #f8fafc;
+      --bg-surface: #ffffff;
+      --bg-elevated: #f1f5f9;
+      --bg-glass: rgba(255, 255, 255, 0.92);
+      --border-subtle: #e2e8f0;
+      --border-strong: #cbd5e1;
+      --text-main: #0f172a;
+      --text-muted: #475569;
+      --accent-cobalt: #2563eb;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      background-color: var(--bg-canvas);
+      color: var(--text-main);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, sans-serif;
+      letter-spacing: -0.015em;
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    .zenith-aura {
+      position: fixed;
+      inset: 0;
+      z-index: -1;
+      pointer-events: none;
+      background:
+        radial-gradient(circle at 8% 92%, rgba(239, 68, 68, 0.15), transparent 50%),
+        radial-gradient(circle at 92% 88%, rgba(37, 99, 235, 0.22), transparent 55%),
+        radial-gradient(circle at 50% 0%, rgba(59, 130, 246, 0.08), transparent 45%),
+        var(--bg-canvas);
+    }
+
+    html.light-theme .zenith-aura {
+      background:
+        radial-gradient(circle at 8% 92%, rgba(239, 68, 68, 0.05), transparent 50%),
+        radial-gradient(circle at 92% 88%, rgba(37, 99, 235, 0.07), transparent 55%),
+        var(--bg-canvas);
+    }
+
+    .zenith-wordmark {
+      font-style: italic;
+      font-weight: 850;
+      letter-spacing: -0.04em;
+      background-image: linear-gradient(95deg, #60a5fa 0%, #ffffff 52%, #f87171 100%);
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
+    }
+
+    html.light-theme .zenith-wordmark {
+      background-image: linear-gradient(95deg, #1d4ed8 0%, #0f172a 52%, #dc2626 100%);
+    }
+
+    .surface-card {
+      background: var(--bg-glass);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid var(--border-subtle);
+    }
+
+    .surface-elevated {
+      background: var(--bg-elevated);
+      border: 1px solid var(--border-subtle);
+    }
+
+    .muted-text {
+      color: var(--text-muted);
+    }
+
+    .font-mono-num {
+      font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+      font-variant-numeric: tabular-nums;
+      letter-spacing: -0.01em;
+    }
+  </style>
+</head>
+<body class="antialiased selection:bg-blue-600 selection:text-white">
+  <div class="zenith-aura"></div>
+
+  <!-- =================================================================== -->
+  <!-- CLEAN STICKY HEADER WITH NOTICEABLE DROPDOWN NAVIGATION             -->
+  <!-- =================================================================== -->
+  <header class="sticky top-0 z-40 w-full border-b border-[var(--border-subtle)] bg-[var(--bg-glass)] backdrop-blur-xl">
+    <div class="mx-auto max-w-6xl px-4 sm:px-6">
+      <div class="flex h-14 items-center justify-between gap-3">
+
+        <!-- Left: ZENITH Wordmark Only -->
+        <a href="#preview" onclick="setPage('preview'); return false;" class="zenith-wordmark text-xl tracking-tight pr-1 select-none shrink-0">
+          ZENITH
+        </a>
+
+        <!-- Right: Icon-Only Theme Switcher + Dropdown Navigation -->
+        <div class="flex items-center gap-2 shrink-0">
+          <!-- Icon-Only Theme Toggle -->
+          <button
+            id="theme-toggle"
+            type="button"
+            onclick="toggleTheme()"
+            aria-label="Ganti tema warna"
+            class="surface-elevated rounded-xl p-2 hover:border-blue-500/50 transition inline-flex items-center justify-center"
+          >
+            <svg id="theme-icon-moon" class="w-4 h-4 text-blue-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"></path>
+            </svg>
+            <svg id="theme-icon-sun" class="w-4 h-4 text-amber-500 hidden" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
+              <circle cx="12" cy="12" r="4"></circle>
+              <path d="M12 2v2M12 20v2m-7.07-14.93 1.41 1.41m11.32 11.32 1.41 1.41M2 12h2m16 0h2m-14.93 7.07 1.41-1.41m11.32-11.32 1.41-1.41"></path>
+            </svg>
+          </button>
+
+          <!-- Noticeable Dropdown Navigation Menu -->
+          <div class="relative" id="nav-dropdown-wrapper">
+            <button
+              id="nav-dropdown-btn"
+              type="button"
+              onclick="toggleNavMenu()"
+              aria-expanded="false"
+              aria-haspopup="true"
+              class="inline-flex items-center gap-2 rounded-xl bg-blue-600/15 hover:bg-blue-600/25 border border-blue-500/40 px-3.5 py-1.5 text-xs sm:text-sm font-semibold text-[var(--text-main)] transition shadow-sm"
+            >
+              <span id="nav-current-icon" class="text-blue-400 flex items-center">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"></path>
+                  <circle cx="12" cy="7" r="4"></circle>
+                </svg>
+              </span>
+              <span id="nav-current-label">Profilku</span>
+              <svg id="nav-chevron" class="w-3.5 h-3.5 muted-text transition-transform duration-150" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24" aria-hidden="true">
+                <path d="m6 9 6 6 6-6"></path>
+              </svg>
+            </button>
+
+            <!-- Dropdown Panel (right-aligned) -->
+            <div
+              id="nav-dropdown-menu"
+              role="menu"
+              class="hidden absolute right-0 mt-2 w-60 rounded-2xl surface-card border border-[var(--border-strong)] p-1.5 shadow-2xl z-50"
+            >
+              <button
+                id="menu-preview"
+                role="menuitem"
+                onclick="setPage('preview'); closeNavMenu();"
+                class="w-full flex items-center gap-3 rounded-xl px-3 py-2.5 text-left text-xs font-semibold bg-blue-600 text-white transition"
+              >
+                <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"></path>
+                  <circle cx="12" cy="7" r="4"></circle>
+                </svg>
+                <div>
+                  <div class="leading-tight">Profilku</div>
+                  <div class="text-[11px] opacity-80 font-normal">Lihat tampilan kartu profil</div>
+                </div>
+              </button>
+
+              <button
+                id="menu-edit"
+                role="menuitem"
+                onclick="setPage('edit'); closeNavMenu();"
+                class="w-full flex items-center gap-3 rounded-xl px-3 py-2.5 text-left text-xs font-medium hover:bg-white/10 transition mt-0.5"
+              >
+                <svg class="w-4 h-4 shrink-0 text-blue-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M12 20h9"></path>
+                  <path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"></path>
+                </svg>
+                <div>
+                  <div class="leading-tight">Edit Profil</div>
+                  <div class="text-[11px] muted-text font-normal">Ubah bio, foto &amp; sosmed</div>
+                </div>
+              </button>
+
+              <button
+                id="menu-directory"
+                role="menuitem"
+                onclick="setPage('directory'); closeNavMenu();"
+                class="w-full flex items-center gap-3 rounded-xl px-3 py-2.5 text-left text-xs font-medium hover:bg-white/10 transition mt-0.5"
+              >
+                <svg class="w-4 h-4 shrink-0 text-emerald-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"></path>
+                  <circle cx="9" cy="7" r="4"></circle>
+                  <path d="M22 21v-2a4 4 0 0 0-3-3.87"></path>
+                  <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+                </svg>
+                <div>
+                  <div class="leading-tight">Teman Angkatan</div>
+                  <div class="text-[11px] muted-text font-normal">Jelajahi direktori Zenith 2026</div>
+                </div>
+              </button>
+
+              <div class="my-1.5 border-t border-[var(--border-subtle)]"></div>
+
+              <button
+                id="menu-admin"
+                role="menuitem"
+                onclick="setPage('admin'); closeNavMenu();"
+                class="w-full flex items-center gap-3 rounded-xl px-3 py-2.5 text-left text-xs font-medium hover:bg-white/10 transition"
+              >
+                <svg class="w-4 h-4 shrink-0 muted-text" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
+                  <rect width="7" height="7" x="3" y="3" rx="1"></rect>
+                  <rect width="7" height="7" x="14" y="3" rx="1"></rect>
+                  <rect width="7" height="7" x="14" y="14" rx="1"></rect>
+                  <rect width="7" height="7" x="3" y="14" rx="1"></rect>
+                </svg>
+                <div>
+                  <div class="leading-tight">Admin</div>
+                  <div class="text-[11px] muted-text font-normal">Kelola data akademik &amp; anggota</div>
+                </div>
+              </button>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </header>
+
+  <!-- =================================================================== -->
+  <!-- MAIN WORKSPACE CONTAINER                                            -->
+  <!-- =================================================================== -->
+  <main class="mx-auto max-w-6xl px-4 sm:px-6 py-6 sm:py-8 space-y-8">
+
+    <!-- ================================================================= -->
+    <!-- PAGE 1: PREVIEW PROFILE                                           -->
+    <!-- ================================================================= -->
+    <section id="page-preview" class="space-y-6">
+
+      <!-- Friendly, Position-Agnostic Bahasa Indonesia Banner -->
+      <div class="surface-card rounded-2xl p-4 sm:px-5 flex flex-wrap items-center justify-between gap-4 border-blue-500/30">
+        <div class="flex items-start sm:items-center gap-3 min-w-0">
+          <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-blue-500/15 text-blue-400 border border-blue-500/30">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M12 3l1.912 5.813a2 2 0 0 0 1.275 1.275L21 12l-5.813 1.912a2 2 0 0 0-1.275 1.275L12 21l-1.912-5.813a2 2 0 0 0-1.275-1.275L3 12l5.813-1.912a2 2 0 0 0 1.275-1.275L12 3Z"></path>
+            </svg>
+          </div>
+          <div class="min-w-0">
+            <p id="preview-banner-title" class="text-xs sm:text-sm font-bold">
+              Ini tampilan kartu profilmu di direktori Zenith!
+            </p>
+            <p id="preview-banner-desc" class="text-xs muted-text mt-0.5">
+              Biar makin gampang dikenal teman satu angkatan, kamu bisa lengkapi bio, minat, dan sosmedmu lewat Edit Profilku.
+            </p>
+          </div>
+        </div>
+        <button
+          type="button"
+          onclick="setPage('edit')"
+          class="rounded-xl bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 text-xs font-semibold shadow transition inline-flex items-center gap-1.5 shrink-0"
+        >
+          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M12 20h9"></path>
+            <path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"></path>
+          </svg>
+          <span>Edit Profilku</span>
+        </button>
+      </div>
+
+      <!-- Dedicated Social / E-Commerce Showcase Card -->
+      <div class="surface-card rounded-3xl p-5 sm:p-8 shadow-2xl">
+        <div class="grid gap-6 md:grid-cols-[300px_minmax(0,1fr)] lg:grid-cols-[340px_minmax(0,1fr)] items-start">
+
+          <!-- Left: 1:1 Locked Photo Showcase -->
+          <div class="space-y-3">
+            <div
+              id="preview-photo-stage"
+              style="touch-action: pan-y;"
+              class="relative aspect-square w-full overflow-hidden rounded-2xl border border-[var(--border-strong)] bg-black/30 select-none shadow-lg"
+            >
+              <img
+                id="preview-img"
+                src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=900&q=80"
+                alt="Foto Profil"
+                draggable="false"
+                class="h-full w-full object-cover transition-transform duration-150"
+                style="transform: translate(0px, 0px) scale(1) rotate(0deg);"
+              />
+
+              <!-- Top Status Pill inside Preview Photo -->
+              <div class="absolute top-3 left-3 flex items-center">
+                <span class="inline-flex items-center gap-1.5 rounded-full bg-black/80 backdrop-blur-md border border-white/15 px-3 py-1 text-[11px] font-medium text-white">
+                  <svg class="w-3 h-3 text-emerald-400" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24" aria-hidden="true">
+                    <rect width="18" height="11" x="3" y="11" rx="2" ry="2"></rect>
+                    <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+                  </svg>
+                  <span>Foto Terkunci</span>
+                </span>
+              </div>
+
+              <!-- Accidental Swipe Hint on Preview Page -->
+              <div
+                id="preview-lock-toast"
+                class="pointer-events-none opacity-0 transition-opacity duration-150 absolute inset-0 flex items-center justify-center bg-black/70 backdrop-blur-xs p-4 text-center"
+              >
+                <div class="rounded-xl bg-slate-950 border border-blue-400/50 px-3.5 py-2.5 text-xs font-medium text-white shadow-lg flex flex-col items-center gap-1.5">
+                  <svg class="w-4 h-4 text-emerald-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
+                    <rect width="18" height="11" x="3" y="11" rx="2" ry="2"></rect>
+                    <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+                  </svg>
+                  <span>Foto sedang dikunci. Buka menu <strong>Edit Profil</strong> untuk mengatur posisi foto.</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Right: Member Details -->
+          <div class="min-w-0 flex flex-col justify-between space-y-5">
+            <div class="space-y-4">
+              <!-- Major Pill + Student ID -->
+              <div class="flex flex-wrap items-center gap-2">
+                <span class="inline-flex items-center gap-1.5 rounded-full bg-blue-600 text-white px-3.5 py-1 text-xs font-bold shadow-xs">
+                  <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M21.42 10.922a1 1 0 0 0-.019-1.838L12.83 5.18a2 2 0 0 0-1.66 0L2.6 9.08a1 1 0 0 0 0 1.832l8.57 3.908a2 2 0 0 0 1.66 0z"></path>
+                    <path d="M6 12.5V16a6 3 0 0 0 12 0v-3.5"></path>
+                  </svg>
+                  <span id="card-major-text">Sistem Informasi</span>
+                </span>
+                <span id="card-npm" class="font-mono-num text-xs surface-elevated rounded-full px-3 py-1 muted-text">
+                  2606123456
+                </span>
+              </div>
+
+              <!-- Display Name & Nickname -->
+              <div class="min-w-0">
+                <h1 id="card-name" class="text-2xl sm:text-4xl font-extrabold tracking-tight leading-tight break-words">
+                  Baruna Fandhika
+                </h1>
+                <p class="text-xs sm:text-sm muted-text mt-1.5 flex flex-wrap items-center gap-x-2.5 gap-y-1">
+                  <span class="inline-flex items-center gap-1 text-[var(--text-main)] font-semibold">
+                    <svg class="w-3.5 h-3.5 text-blue-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
+                      <path d="M12 3l1.912 5.813a2 2 0 0 0 1.275 1.275L21 12l-5.813 1.912a2 2 0 0 0-1.275 1.275L12 21l-1.912-5.813a2 2 0 0 0-1.275-1.275L3 12l5.813-1.912a2 2 0 0 0 1.275-1.275L12 3Z"></path>
+                    </svg>
+                    <span>Panggilan:</span>
+                    <span id="card-nickname">Baruna / Bar</span>
+                  </span>
+                  <span>·</span>
+                  <span class="inline-flex items-center gap-1 font-mono-num">
+                    <svg class="w-3.5 h-3.5 muted-text" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
+                      <rect width="20" height="16" x="2" y="4" rx="2"></rect>
+                      <path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"></path>
+                    </svg>
+                    <span id="card-email">baruna@ui.ac.id</span>
+                  </span>
+                </p>
+              </div>
+
+              <!-- Bio -->
+              <p id="card-bio" class="text-sm sm:text-base leading-relaxed opacity-90 break-words">
+                Mahasiswa Sistem Informasi UI yang suka ngulik product engineering, design system, dan web interaktif. Lagi seru eksplor hackathon dan kolaborasi proyek bareng teman-teman Zenith!
+              </p>
+
+              <!-- Pinned Quote Callout -->
+              <div class="surface-elevated rounded-2xl p-3.5 border-l-4 border-l-blue-500">
+                <div class="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider muted-text">
+                  <svg class="w-3 h-3 text-blue-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M3 21c3 0 7-1 7-8V5c0-1.25-.756-2.017-2-2H4c-1.25 0-2 .75-2 1.972V11c0 1.25.75 2 2 2 1 0 1 0 1 1v1c0 1-1 2-2 2s-1 .008-1 1.031V20c0 1 0 1 1 1z"></path>
+                    <path d="M15 21c3 0 7-1 7-8V5c0-1.25-.757-2.017-2-2h-4c-1.25 0-2 .75-2 1.972V11c0 1.25.75 2 2 2h.75c0 2.25.25 4-2.75 4v3c0 1 0 1 1 1z"></path>
+                  </svg>
+                  <span>Quotes Andalan</span>
+                </div>
+                <p id="card-quote" class="text-xs sm:text-sm italic mt-1">
+                  "Jangan takut mulai dari nol, semua engineer hebat juga pernah bingung sama titik koma."
+                </p>
+              </div>
+
+              <!-- Interest & Niche Pills -->
+              <div class="space-y-2">
+                <span class="text-[11px] font-semibold uppercase tracking-wider muted-text inline-flex items-center gap-1">
+                  <svg class="w-3 h-3 text-blue-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M12 2H2v10l9.29 9.29c.94.94 2.48.94 3.42 0l6.58-6.58c.94-.94.94-2.48 0-3.42L12 2Z"></path>
+                    <path d="M7 7h.01"></path>
+                  </svg>
+                  <span>Minat &amp; Niche</span>
+                </span>
+                <div id="card-niches" class="flex flex-wrap gap-1.5">
+                  <span class="surface-elevated rounded-full px-3.5 py-1 text-xs font-medium">Frontend Developer</span>
+                  <span class="surface-elevated rounded-full px-3.5 py-1 text-xs font-medium">UI/UX Design</span>
+                  <span class="surface-elevated rounded-full px-3.5 py-1 text-xs font-medium">Product Engineering</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Social Links Bar -->
+            <div class="flex flex-wrap items-center gap-2 pt-4 border-t border-[var(--border-subtle)]">
+              <a href="#ig" onclick="return false" class="surface-elevated hover:border-blue-500/60 rounded-xl px-3 py-1.5 text-xs font-medium transition inline-flex items-center gap-1.5">
+                <svg class="w-3.5 h-3.5 text-pink-400 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
+                  <rect width="20" height="20" x="2" y="2" rx="5" ry="5"></rect>
+                  <path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"></path>
+                  <line x1="17.5" x2="17.51" y1="6.5" y2="6.5"></line>
+                </svg>
+                <span id="card-ig" class="font-mono-num">@baruna.ui</span>
+              </a>
+              <a href="#gh" onclick="return false" class="surface-elevated hover:border-blue-500/60 rounded-xl px-3 py-1.5 text-xs font-medium transition inline-flex items-center gap-1.5">
+                <svg class="w-3.5 h-3.5 muted-text shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M15 22v-4a4.8 4.8 0 0 0-1-3.5c3 0 6-2 6-5.5.08-1.25-.27-2.48-1-3.5.28-1.15.28-2.35 0-3.5 0 0-1 0-3 1.5-2.64-.5-5.36-.5-8 0C6 2 5 2 5 2c-.3 1.15-.3 2.35 0 3.5A5.403 5.403 0 0 0 4 9c0 3.5 3 5.5 6 5.5-.39.49-.68 1.05-.85 1.65-.17.6-.22 1.23-.15 1.85v4"></path>
+                  <path d="M9 18c-4.51 2-5-2-7-2"></path>
+                </svg>
+                <span id="card-gh" class="font-mono-num">barunaf</span>
+              </a>
+              <a href="#in" onclick="return false" class="surface-elevated hover:border-blue-500/60 rounded-xl px-3 py-1.5 text-xs font-medium transition inline-flex items-center gap-1.5">
+                <svg class="w-3.5 h-3.5 text-blue-400 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M16 8a6 6 0 0 1 6 6v7h-4v-7a2 2 0 0 0-2-2 2 2 0 0 0-2 2v7h-4v-7a6 6 0 0 1 6-6z"></path>
+                  <rect width="4" height="12" x="2" y="9"></rect>
+                  <circle cx="4" cy="4" r="2"></circle>
+                </svg>
+                <span>LinkedIn</span>
+              </a>
+              <a href="#ln" onclick="return false" class="surface-elevated hover:border-blue-500/60 rounded-xl px-3 py-1.5 text-xs font-medium transition inline-flex items-center gap-1.5">
+                <svg class="w-3.5 h-3.5 text-emerald-400 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"></path>
+                </svg>
+                <span id="card-line" class="font-mono-num">baruna26</span>
+              </a>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </section>
+
+    <!-- ================================================================= -->
+    <!-- PAGE 2: EDIT PROFILE (FUN BAHASA INDONESIA TIPS, POSITION-FREE)   -->
+    <!-- ================================================================= -->
+    <section id="page-edit" class="hidden space-y-6">
+
+      <!-- Page Header + Preview Action -->
+      <div class="flex flex-wrap items-center justify-between gap-3 border-b border-[var(--border-subtle)] pb-4">
+        <div>
+          <h1 class="text-xl sm:text-2xl font-bold tracking-tight">Poles Kartu Profilmu!</h1>
+          <p class="text-xs sm:text-sm muted-text mt-0.5">
+            Bikin teman-teman satu angkatan gampang kenal dan ngajak kamu kolaborasi.
+          </p>
+        </div>
+        <button
+          type="button"
+          onclick="setPage('preview')"
+          class="surface-elevated hover:border-blue-500/50 rounded-xl px-3.5 py-2 text-xs font-semibold transition inline-flex items-center gap-1.5"
+        >
+          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M2.062 12.348a1 1 0 0 1 0-.696 10.75 10.75 0 0 1 19.876 0 1 1 0 0 1 0 .696 10.75 10.75 0 0 1-19.876 0"></path>
+            <circle cx="12" cy="12" r="3"></circle>
+          </svg>
+          <span>Lihat Hasil Kartu</span>
+        </button>
+      </div>
+
+      <!-- Fun Bahasa Indonesia Tips Cards (Position-Agnostic) -->
+      <div class="grid gap-3 sm:grid-cols-3">
+        <div class="surface-card rounded-2xl p-4 space-y-1.5 border-blue-500/25">
+          <div class="flex items-center gap-2 text-xs font-bold text-blue-400">
+            <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
+              <rect width="18" height="11" x="3" y="11" rx="2" ry="2"></rect>
+              <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+            </svg>
+            <span>1. Fitur Kunci Foto</span>
+          </div>
+          <p class="text-xs muted-text leading-relaxed">
+            Mau atur zoom atau geser posisi wajahmu? Tekan tombol <strong>Buka Kunci Foto</strong> terlebih dahulu, lalu kunci kembali setelah selesai.
+          </p>
+        </div>
+
+        <div class="surface-card rounded-2xl p-4 space-y-1.5 border-blue-500/25">
+          <div class="flex items-center gap-2 text-xs font-bold text-emerald-400">
+            <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M12 2H2v10l9.29 9.29c.94.94 2.48.94 3.42 0l6.58-6.58c.94-.94.94-2.48 0-3.42L12 2Z"></path>
+              <path d="M7 7h.01"></path>
+            </svg>
+            <span>2. Tips Niche &amp; Minat</span>
+          </div>
+          <p class="text-xs muted-text leading-relaxed">
+            Pisahkan minatmu pakai tanda koma (contoh: <span class="font-mono-num text-[var(--text-main)]">Game Dev, UI/UX, CTF</span>). Nanti otomatis tampil jadi badge keren!
+          </p>
+        </div>
+
+        <div class="surface-card rounded-2xl p-4 space-y-1.5 border-blue-500/25">
+          <div class="flex items-center gap-2 text-xs font-bold text-amber-400">
+            <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M12 3l1.912 5.813a2 2 0 0 0 1.275 1.275L21 12l-5.813 1.912a2 2 0 0 0-1.275 1.275L12 21l-1.912-5.813a2 2 0 0 0-1.275-1.275L3 12l5.813-1.912a2 2 0 0 0 1.275-1.275L12 3Z"></path>
+            </svg>
+            <span>3. Quotes &amp; Sosial Media</span>
+          </div>
+          <p class="text-xs muted-text leading-relaxed">
+            Tulis satu kalimat andalanmu di bagian Quotes, dan cukup ketik username sosmedmu saja tanpa perlu salin link panjang.
+          </p>
+        </div>
+      </div>
+
+      <!-- Edit Form + Photo Studio Grid -->
+      <div class="grid gap-6 lg:grid-cols-12 items-start">
+
+        <!-- Left (5 cols): Photo Editor Card with Lock Photo Toggle -->
+        <div class="lg:col-span-5 surface-card rounded-2xl p-5 space-y-4">
+          <div>
+            <h2 class="text-sm font-bold">Foto Profil</h2>
+            <p class="text-xs muted-text">Pilih foto terbaikmu untuk direktori Zenith.</p>
+          </div>
+
+          <div
+            id="edit-photo-stage"
+            style="touch-action: pan-y;"
+            class="relative aspect-square w-full max-w-xs mx-auto overflow-hidden rounded-2xl border border-[var(--border-strong)] bg-black/30 select-none shadow-lg"
+          >
+            <img
+              id="edit-img"
+              src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=900&q=80"
+              alt="Edit Foto Profil"
+              draggable="false"
+              class="h-full w-full object-cover transition-transform duration-150"
+              style="transform: translate(0px, 0px) scale(1) rotate(0deg);"
+            />
+
+            <!-- Top Bar inside Photo: Lock Status Badge + Lock Button -->
+            <div class="absolute top-2.5 left-2.5 right-2.5 flex items-center justify-between gap-1.5">
+              <span class="inline-flex items-center gap-1.5 rounded-full bg-black/80 backdrop-blur-md border border-white/15 px-2.5 py-1 text-[11px] font-medium text-white">
+                <span id="lock-dot" class="h-2 w-2 rounded-full bg-emerald-400"></span>
+                <span id="lock-badge-text">Terkunci</span>
+              </span>
+
+              <button
+                id="lock-btn"
+                type="button"
+                onclick="togglePhotoLock()"
+                aria-pressed="true"
+                class="inline-flex items-center gap-1 rounded-full bg-black/85 hover:bg-black text-white border border-white/25 px-3 py-1 text-[11px] font-semibold shadow transition active:scale-95"
+              >
+                <svg id="icon-padlock-closed" class="w-3 h-3 text-emerald-400 shrink-0" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24" aria-hidden="true">
+                  <rect width="18" height="11" x="3" y="11" rx="2" ry="2"></rect>
+                  <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+                </svg>
+                <svg id="icon-padlock-open" class="w-3 h-3 text-amber-400 shrink-0 hidden" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24" aria-hidden="true">
+                  <rect width="18" height="11" x="3" y="11" rx="2" ry="2"></rect>
+                  <path d="M7 11V7a5 5 0 0 1 9.9-1"></path>
+                </svg>
+                <span id="lock-btn-text">Buka Kunci Foto</span>
+              </button>
+            </div>
+
+            <!-- Bottom Bar inside Photo: Change Photo Presets -->
+            <div class="absolute bottom-2.5 inset-x-2.5 flex items-center justify-between">
+              <button
+                type="button"
+                onclick="if(isLocked){showLockShield();}else{switchPhoto((currentPhotoIdx+1)%3);}"
+                class="inline-flex items-center gap-1 rounded-full bg-black/75 backdrop-blur-md px-2.5 py-1 text-[11px] font-medium text-white/95 border border-white/15 hover:bg-black transition"
+              >
+                <svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"></path>
+                  <circle cx="12" cy="13" r="3"></circle>
+                </svg>
+                <span>Ganti Foto</span>
+              </button>
+              <div class="flex items-center gap-1.5 rounded-full bg-black/75 backdrop-blur-md px-2.5 py-1.5 border border-white/15">
+                <button onclick="switchPhoto(0)" aria-label="Foto 1" class="h-1.5 w-4 rounded-full bg-blue-400"></button>
+                <button onclick="switchPhoto(1)" aria-label="Foto 2" class="h-1.5 w-1.5 rounded-full bg-white/50 hover:bg-white"></button>
+                <button onclick="switchPhoto(2)" aria-label="Foto 3" class="h-1.5 w-1.5 rounded-full bg-white/50 hover:bg-white"></button>
+              </div>
+            </div>
+
+            <!-- Lock Shield Toast -->
+            <div
+              id="lock-toast"
+              class="pointer-events-none opacity-0 transition-opacity duration-150 absolute inset-0 flex items-center justify-center bg-black/70 backdrop-blur-xs p-3 text-center"
+            >
+              <div class="rounded-xl bg-slate-950 border border-amber-400/50 px-3 py-2.5 text-[11px] font-medium text-white shadow-lg flex flex-col items-center gap-1.5">
+                <svg class="w-4 h-4 text-amber-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
+                  <rect width="18" height="11" x="3" y="11" rx="2" ry="2"></rect>
+                  <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+                </svg>
+                <span>Foto masih dikunci. Tekan <strong>Buka Kunci Foto</strong> untuk mengatur posisi.</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Unlocked Crop Controls -->
+          <div id="crop-drawer" class="hidden surface-elevated rounded-xl p-3.5 space-y-3 border-amber-500/40">
+            <div class="flex items-center justify-between text-xs">
+              <span class="font-semibold text-amber-400 inline-flex items-center gap-1">
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M5 9l-3 3 3 3M9 5l3-3 3 3M15 19l-3 3-3-3M19 9l3 3-3 3M2 12h20M12 2v20"></path>
+                </svg>
+                Geser foto untuk mengatur posisi
+              </span>
+              <div class="flex items-center gap-2">
+                <button onclick="resetCrop()" class="underline muted-text hover:text-[var(--text-main)]">Reset</button>
+                <button onclick="togglePhotoLock()" class="rounded-lg bg-emerald-500 text-slate-950 font-bold px-2.5 py-1">Kunci Lagi</button>
+              </div>
+            </div>
+            <div class="grid grid-cols-2 gap-3 text-xs">
+              <label class="space-y-1">
+                <div class="flex justify-between">
+                  <span class="muted-text">Perbesar (Zoom)</span>
+                  <span id="zoom-val" class="font-mono-num">1.00x</span>
+                </div>
+                <input id="zoom-input" type="range" min="1" max="2.5" step="0.05" value="1" oninput="applyCrop()" class="w-full accent-blue-500" />
+              </label>
+              <label class="space-y-1">
+                <div class="flex justify-between">
+                  <span class="muted-text">Putar (Rotate)</span>
+                  <span id="rot-val" class="font-mono-num">0°</span>
+                </div>
+                <input id="rot-input" type="range" min="0" max="270" step="90" value="0" oninput="applyCrop()" class="w-full accent-blue-500" />
+              </label>
+            </div>
+          </div>
+        </div>
+
+        <!-- Right (7 cols): Form Fields -->
+        <div class="lg:col-span-7 surface-card rounded-2xl p-5 sm:p-6 space-y-4">
+          <div class="grid gap-4 sm:grid-cols-2">
+            <label class="space-y-1 text-xs">
+              <span class="font-semibold">Nama Lengkap</span>
+              <input id="in-name" type="text" value="Baruna Fandhika" oninput="syncCard()" class="w-full rounded-xl surface-elevated px-3 py-2 text-xs sm:text-sm focus:outline-2 focus:outline-blue-500" />
+            </label>
+            <label class="space-y-1 text-xs">
+              <span class="font-semibold">Nama Panggilan</span>
+              <input id="in-nick" type="text" value="Baruna / Bar" placeholder="Biar akrab dipanggil apa nih?" oninput="syncCard()" class="w-full rounded-xl surface-elevated px-3 py-2 text-xs sm:text-sm focus:outline-2 focus:outline-blue-500" />
+            </label>
+          </div>
+
+          <div class="grid gap-4 sm:grid-cols-2">
+            <label class="space-y-1 text-xs">
+              <span class="font-semibold">Program Studi</span>
+              <select id="in-major" onchange="syncCard()" class="w-full rounded-xl surface-elevated px-3 py-2 text-xs sm:text-sm focus:outline-2 focus:outline-blue-500">
+                <option value="Sistem Informasi">Sistem Informasi</option>
+                <option value="Ilmu Komputer">Ilmu Komputer</option>
+                <option value="Kecerdasan Artifisial">Kecerdasan Artifisial</option>
+                <option value="Ilmu Komputer KKI">Ilmu Komputer KKI</option>
+              </select>
+            </label>
+            <label class="space-y-1 text-xs">
+              <span class="font-semibold">Email Aktif</span>
+              <input id="in-email" type="email" value="baruna@ui.ac.id" oninput="syncCard()" class="w-full rounded-xl surface-elevated px-3 py-2 text-xs sm:text-sm font-mono-num focus:outline-2 focus:outline-blue-500" />
+            </label>
+          </div>
+
+          <label class="space-y-1 text-xs block">
+            <div class="flex items-center justify-between">
+              <span class="font-semibold">Minat &amp; Niche</span>
+              <span class="text-[11px] muted-text">Pisahkan dengan koma (,)</span>
+            </div>
+            <input id="in-niche" type="text" value="Frontend Developer, UI/UX Design, Product Engineering" placeholder="Contoh: Game Dev, Cyber Security, Data Science" oninput="syncCard()" class="w-full rounded-xl surface-elevated px-3 py-2 text-xs sm:text-sm focus:outline-2 focus:outline-blue-500" />
+          </label>
+
+          <label class="space-y-1 text-xs block">
+            <div class="flex items-center justify-between">
+              <span class="font-semibold">Cerita Singkat Tentangmu (Bio)</span>
+              <span class="text-[11px] muted-text">Lagi sibuk ngulik apa semester ini?</span>
+            </div>
+            <textarea id="in-bio" rows="3" oninput="syncCard()" class="w-full rounded-xl surface-elevated px-3 py-2 text-xs sm:text-sm focus:outline-2 focus:outline-blue-500">Mahasiswa Sistem Informasi UI yang suka ngulik product engineering, design system, dan web interaktif. Lagi seru eksplor hackathon dan kolaborasi proyek bareng teman-teman Zenith!</textarea>
+          </label>
+
+          <label class="space-y-1 text-xs block">
+            <div class="flex items-center justify-between">
+              <span class="font-semibold">Quotes Andalan</span>
+              <span class="text-[11px] muted-text">Motto hidup atau kalimat penyemangat</span>
+            </div>
+            <input id="in-quote" type="text" value="Jangan takut mulai dari nol, semua engineer hebat juga pernah bingung sama titik koma." oninput="syncCard()" class="w-full rounded-xl surface-elevated px-3 py-2 text-xs sm:text-sm focus:outline-2 focus:outline-blue-500" />
+          </label>
+
+          <div class="grid gap-3 sm:grid-cols-2 pt-1">
+            <label class="space-y-1 text-xs">
+              <span class="font-semibold">Instagram</span>
+              <input id="in-ig" type="text" value="@baruna.ui" placeholder="@username" oninput="syncCard()" class="w-full rounded-xl surface-elevated px-3 py-2 text-xs font-mono-num" />
+            </label>
+            <label class="space-y-1 text-xs">
+              <span class="font-semibold">GitHub</span>
+              <input id="in-gh" type="text" value="barunaf" placeholder="username" oninput="syncCard()" class="w-full rounded-xl surface-elevated px-3 py-2 text-xs font-mono-num" />
+            </label>
+          </div>
+
+          <div class="flex flex-wrap items-center justify-end gap-2.5 pt-4 border-t border-[var(--border-subtle)]">
+            <button
+              type="button"
+              onclick="setPage('preview')"
+              class="surface-elevated hover:border-white/30 rounded-xl px-4 py-2 text-xs font-medium transition"
+            >
+              Batal
+            </button>
+            <button
+              type="button"
+              onclick="saveAndGoPreview()"
+              class="rounded-xl bg-blue-600 hover:bg-blue-500 text-white px-5 py-2 text-xs font-semibold shadow-lg transition inline-flex items-center gap-1.5"
+            >
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M20 6 9 17l-5-5"></path>
+              </svg>
+              <span id="save-btn-label">Simpan &amp; Lihat Kartu</span>
+            </button>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- ================================================================= -->
+    <!-- PAGE 3: COHORT DIRECTORY                                          -->
+    <!-- ================================================================= -->
+    <section id="page-directory" class="hidden space-y-6">
+
+      <!-- Fun Bahasa Indonesia Directory Guide -->
+      <div class="surface-card rounded-2xl p-4 sm:px-5 flex flex-wrap items-center justify-between gap-4 border-blue-500/30">
+        <div class="flex items-start sm:items-center gap-3 min-w-0">
+          <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-blue-500/15 text-blue-400 border border-blue-500/30">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"></path>
+              <circle cx="9" cy="7" r="4"></circle>
+              <path d="M22 21v-2a4 4 0 0 0-3-3.87"></path>
+              <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+            </svg>
+          </div>
+          <div class="min-w-0">
+            <p class="text-xs sm:text-sm font-bold">
+              Kenalan sama teman-teman Zenith 2026 yuk!
+            </p>
+            <p class="text-xs muted-text mt-0.5">
+              Cari berdasarkan minat seperti <strong>"Game Dev"</strong> atau <strong>"Cyber Security"</strong> buat nemu partner lomba, belajar bareng, atau mabar.
+            </p>
+          </div>
+        </div>
+
+        <!-- Filter Bar -->
+        <div class="flex flex-wrap items-center gap-2">
+          <div class="relative">
+            <svg class="w-3.5 h-3.5 muted-text absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
+              <circle cx="11" cy="11" r="8"></circle>
+              <path d="m21 21-4.3-4.3"></path>
+            </svg>
+            <input
+              id="peer-search"
+              type="search"
+              placeholder="Cari nama atau minat..."
+              oninput="filterCohort()"
+              class="rounded-xl surface-elevated pl-8 pr-3 py-1.5 text-xs w-48 sm:w-56"
+            />
+          </div>
+          <div class="flex flex-wrap gap-1 text-xs">
+            <button onclick="setMajorFilter('ALL')" id="pill-ALL" class="rounded-lg px-2.5 py-1.5 font-semibold bg-blue-600 text-white">Semua</button>
+            <button onclick="setMajorFilter('CS')" id="pill-CS" class="rounded-lg px-2.5 py-1.5 surface-elevated muted-text hover:text-[var(--text-main)]">CS</button>
+            <button onclick="setMajorFilter('SI')" id="pill-SI" class="rounded-lg px-2.5 py-1.5 surface-elevated muted-text hover:text-[var(--text-main)]">SI</button>
+            <button onclick="setMajorFilter('AI')" id="pill-AI" class="rounded-lg px-2.5 py-1.5 surface-elevated muted-text hover:text-[var(--text-main)]">AI</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Member Cards -->
+      <div id="cohort-grid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div
+          data-major="SI"
+          data-keywords="lulu mila data science bi sql"
+          onclick="inspectMember('Lulu Hulwah', 'Lulu / Mila', 'Sistem Informasi', '2606110022', 'lulu.hulwah@ui.ac.id', 'Suka eksplorasi visualisasi data, dashboard BI, dan optimasi query SQL. Yuk ngobrol soal data!', 'Konsistensi kecil setiap hari mengalahkan bakat yang diam.', 'Data Science, BI, SQL', 1)"
+          class="surface-card rounded-2xl p-4 cursor-pointer transition hover:-translate-y-1 hover:border-blue-500/50 flex flex-col justify-between gap-3"
+        >
+          <div class="flex items-center gap-3">
+            <img src="https://images.unsplash.com/photo-1517841905240-472988babdf9?auto=format&fit=crop&w=400&q=80" alt="Lulu" class="h-14 w-14 rounded-xl object-cover shrink-0 border border-white/15" />
+            <div class="min-w-0">
+              <div class="flex items-center gap-1.5">
+                <p class="font-bold text-sm truncate">Lulu / Mila</p>
+                <span class="rounded bg-blue-500/20 text-blue-400 px-1.5 py-0.5 text-[10px] font-bold">SI</span>
+              </div>
+              <p class="text-xs muted-text truncate">Lulu Hulwah Kamilah</p>
+              <p class="text-[11px] font-mono-num muted-text">2606110022</p>
+            </div>
+          </div>
+          <div class="flex flex-wrap gap-1">
+            <span class="surface-elevated rounded-md px-2 py-0.5 text-[11px]">Data Science</span>
+            <span class="surface-elevated rounded-md px-2 py-0.5 text-[11px]">BI</span>
+            <span class="surface-elevated rounded-md px-2 py-0.5 text-[11px]">SQL</span>
+          </div>
+        </div>
+
+        <div
+          data-major="CS"
+          data-keywords="syabil rifky cyber security rust linux"
+          onclick="inspectMember('Syabil Rifky', 'Syabil', 'Ilmu Komputer', '2606110045', 'syabil.rifky@ui.ac.id', 'Pemain CTF dan penggemar pemrograman sistem. Sering ngoprek keamanan kernel Linux dan Rust.', 'Selalu cek ulang setiap celah.', 'Cyber Security, Rust, Linux', 2)"
+          class="surface-card rounded-2xl p-4 cursor-pointer transition hover:-translate-y-1 hover:border-blue-500/50 flex flex-col justify-between gap-3"
+        >
+          <div class="flex items-center gap-3">
+            <img src="https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?auto=format&fit=crop&w=400&q=80" alt="Syabil" class="h-14 w-14 rounded-xl object-cover shrink-0 border border-white/15" />
+            <div class="min-w-0">
+              <div class="flex items-center gap-1.5">
+                <p class="font-bold text-sm truncate">Syabil Rifky</p>
+                <span class="rounded bg-red-500/20 text-red-400 px-1.5 py-0.5 text-[10px] font-bold">CS</span>
+              </div>
+              <p class="text-xs muted-text truncate">Syabil Rifky Athallah</p>
+              <p class="text-[11px] font-mono-num muted-text">2606110045</p>
+            </div>
+          </div>
+          <div class="flex flex-wrap gap-1">
+            <span class="surface-elevated rounded-md px-2 py-0.5 text-[11px]">Cyber Security</span>
+            <span class="surface-elevated rounded-md px-2 py-0.5 text-[11px]">Rust</span>
+            <span class="surface-elevated rounded-md px-2 py-0.5 text-[11px]">Linux</span>
+          </div>
+        </div>
+
+        <div
+          data-major="AI"
+          data-keywords="azzam arya machine learning computer vision"
+          onclick="inspectMember('Muhammad Azzam', 'Azzam / Arya', 'Kecerdasan Artifisial', '2606110088', 'azzam.arya@ui.ac.id', 'Tertarik banget sama multimodal AI dan computer vision. Ayo bikin proyek bareng!', 'Data yang bersih adalah separuh kemenangan.', 'Machine Learning, Computer Vision', 0)"
+          class="surface-card rounded-2xl p-4 cursor-pointer transition hover:-translate-y-1 hover:border-blue-500/50 flex flex-col justify-between gap-3"
+        >
+          <div class="flex items-center gap-3">
+            <img src="https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=400&q=80" alt="Azzam" class="h-14 w-14 rounded-xl object-cover shrink-0 border border-white/15" />
+            <div class="min-w-0">
+              <div class="flex items-center gap-1.5">
+                <p class="font-bold text-sm truncate">Azzam / Arya</p>
+                <span class="rounded bg-purple-500/20 text-purple-400 px-1.5 py-0.5 text-[10px] font-bold">AI</span>
+              </div>
+              <p class="text-xs muted-text truncate">Muhammad Azzam Aryasatya</p>
+              <p class="text-[11px] font-mono-num muted-text">2606110088</p>
+            </div>
+          </div>
+          <div class="flex flex-wrap gap-1">
+            <span class="surface-elevated rounded-md px-2 py-0.5 text-[11px]">Machine Learning</span>
+            <span class="surface-elevated rounded-md px-2 py-0.5 text-[11px]">Computer Vision</span>
+          </div>
+        </div>
+
+        <div
+          data-major="CS"
+          data-keywords="khansa devinta game dev shaders godot"
+          onclick="inspectMember('Khansa Devinta', 'Khansa', 'Ilmu Komputer', '2606110099', 'khansa.devinta@ui.ac.id', 'Suka bikin indie game, eksperimen shader, dan cerita interaktif di Godot Engine.', 'Bermain adalah cara belajar paling seru.', 'Game Dev, Shaders, Godot', 1)"
+          class="surface-card rounded-2xl p-4 cursor-pointer transition hover:-translate-y-1 hover:border-blue-500/50 flex flex-col justify-between gap-3"
+        >
+          <div class="flex items-center gap-3">
+            <img src="https://images.unsplash.com/photo-1524504388940-b1c1722653e1?auto=format&fit=crop&w=400&q=80" alt="Khansa" class="h-14 w-14 rounded-xl object-cover shrink-0 border border-white/15" />
+            <div class="min-w-0">
+              <div class="flex items-center gap-1.5">
+                <p class="font-bold text-sm truncate">Khansa</p>
+                <span class="rounded bg-red-500/20 text-red-400 px-1.5 py-0.5 text-[10px] font-bold">CS</span>
+              </div>
+              <p class="text-xs muted-text truncate">Khansa Devinta Azzahra</p>
+              <p class="text-[11px] font-mono-num muted-text">2606110099</p>
+            </div>
+          </div>
+          <div class="flex flex-wrap gap-1">
+            <span class="surface-elevated rounded-md px-2 py-0.5 text-[11px]">Game Dev</span>
+            <span class="surface-elevated rounded-md px-2 py-0.5 text-[11px]">Shaders</span>
+            <span class="surface-elevated rounded-md px-2 py-0.5 text-[11px]">Godot</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ================================================================= -->
+    <!-- PAGE 4: SIMPLIFIED ADMIN ROUTES (NO FUN BANNER, STRICT & SIMPLE)  -->
+    <!-- ================================================================= -->
+    <section id="page-admin" class="hidden space-y-4">
+      <div class="surface-card rounded-2xl p-4 sm:p-6 space-y-4">
+        <div class="flex flex-wrap items-center justify-between gap-3 border-b border-[var(--border-subtle)] pb-4">
+          <div>
+            <h2 class="text-lg sm:text-xl font-bold tracking-tight">Curriculum &amp; Directory Records</h2>
+            <p class="text-xs muted-text">Simple table view for managing study programs, courses, members, and achievements.</p>
+          </div>
+          <div class="flex items-center gap-2 text-xs">
+            <button class="rounded-lg bg-blue-600 hover:bg-blue-500 px-3.5 py-2 font-semibold text-white inline-flex items-center gap-1.5">
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M5 12h14"></path>
+                <path d="M12 5v14"></path>
+              </svg>
+              <span>Add Record</span>
+            </button>
+          </div>
+        </div>
+
+        <div class="grid gap-2 sm:grid-cols-[1fr_180px_180px]">
+          <div class="relative">
+            <svg class="w-3.5 h-3.5 muted-text absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
+              <circle cx="11" cy="11" r="8"></circle>
+              <path d="m21 21-4.3-4.3"></path>
+            </svg>
+            <input type="text" placeholder="Filter by code or name..." class="w-full rounded-lg surface-elevated pl-8 pr-3 py-1.5 text-xs" />
+          </div>
+          <select class="rounded-lg surface-elevated px-3 py-1.5 text-xs">
+            <option>All Study Programs</option>
+            <option>Ilmu Komputer</option>
+            <option>Sistem Informasi</option>
+            <option>Kecerdasan Artifisial</option>
+          </select>
+          <select class="rounded-lg surface-elevated px-3 py-1.5 text-xs">
+            <option>Courses</option>
+            <option>Study Programs</option>
+            <option>Members</option>
+            <option>Achievements</option>
+          </select>
+        </div>
+
+        <div class="overflow-x-auto rounded-xl border border-[var(--border-subtle)]">
+          <table class="w-full text-left text-xs">
+            <thead class="surface-elevated border-b border-[var(--border-subtle)] uppercase text-[11px] muted-text">
+              <tr>
+                <th class="py-2.5 px-3 font-mono-num">Code</th>
+                <th class="py-2.5 px-3">Course Name</th>
+                <th class="py-2.5 px-3">Study Program</th>
+                <th class="py-2.5 px-3 font-mono-num">Term</th>
+                <th class="py-2.5 px-3 font-mono-num">Credits</th>
+                <th class="py-2.5 px-3 text-right">Actions</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-[var(--border-subtle)]">
+              <tr class="hover:bg-white/5">
+                <td class="py-2.5 px-3 font-mono-num text-blue-400">CSGE601020</td>
+                <td class="py-2.5 px-3 font-medium">Dasar-Dasar Pemrograman 1</td>
+                <td class="py-2.5 px-3 muted-text">Ilmu Komputer</td>
+                <td class="py-2.5 px-3 font-mono-num">1</td>
+                <td class="py-2.5 px-3 font-mono-num">4 SKS</td>
+                <td class="py-2.5 px-3 text-right space-x-1 whitespace-nowrap">
+                  <button aria-label="Edit row" class="surface-elevated hover:border-blue-500/50 rounded-md p-1.5 inline-flex items-center">
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
+                      <path d="M12 20h9"></path>
+                      <path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"></path>
+                    </svg>
+                  </button>
+                  <button aria-label="Delete row" class="surface-elevated hover:border-red-500/50 text-red-400 rounded-md p-1.5 inline-flex items-center">
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
+                      <path d="M3 6h18"></path>
+                      <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"></path>
+                      <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"></path>
+                    </svg>
+                  </button>
+                </td>
+              </tr>
+              <tr class="hover:bg-white/5">
+                <td class="py-2.5 px-3 font-mono-num text-blue-400">CSGE601021</td>
+                <td class="py-2.5 px-3 font-medium">Dasar-Dasar Pemrograman 2</td>
+                <td class="py-2.5 px-3 muted-text">Sistem Informasi</td>
+                <td class="py-2.5 px-3 font-mono-num">2</td>
+                <td class="py-2.5 px-3 font-mono-num">4 SKS</td>
+                <td class="py-2.5 px-3 text-right space-x-1 whitespace-nowrap">
+                  <button aria-label="Edit row" class="surface-elevated hover:border-blue-500/50 rounded-md p-1.5 inline-flex items-center">
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
+                      <path d="M12 20h9"></path>
+                      <path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"></path>
+                    </svg>
+                  </button>
+                  <button aria-label="Delete row" class="surface-elevated hover:border-red-500/50 text-red-400 rounded-md p-1.5 inline-flex items-center">
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
+                      <path d="M3 6h18"></path>
+                      <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"></path>
+                      <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"></path>
+                    </svg>
+                  </button>
+                </td>
+              </tr>
+              <tr class="hover:bg-white/5">
+                <td class="py-2.5 px-3 font-mono-num text-blue-400">CSGE602040</td>
+                <td class="py-2.5 px-3 font-medium">Struktur Data &amp; Algoritma</td>
+                <td class="py-2.5 px-3 muted-text">Kecerdasan Artifisial</td>
+                <td class="py-2.5 px-3 font-mono-num">3</td>
+                <td class="py-2.5 px-3 font-mono-num">4 SKS</td>
+                <td class="py-2.5 px-3 text-right space-x-1 whitespace-nowrap">
+                  <button aria-label="Edit row" class="surface-elevated hover:border-blue-500/50 rounded-md p-1.5 inline-flex items-center">
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
+                      <path d="M12 20h9"></path>
+                      <path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"></path>
+                    </svg>
+                  </button>
+                  <button aria-label="Delete row" class="surface-elevated hover:border-red-500/50 text-red-400 rounded-md p-1.5 inline-flex items-center">
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
+                      <path d="M3 6h18"></path>
+                      <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"></path>
+                      <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"></path>
+                    </svg>
+                  </button>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <script>
+    const PHOTOS = [
+      "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=900&q=80",
+      "https://images.unsplash.com/photo-1517841905240-472988babdf9?auto=format&fit=crop&w=900&q=80",
+      "https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?auto=format&fit=crop&w=900&q=80"
+    ];
+
+    const PAGE_META = {
+      preview: { label: 'Profilku', icon: '<svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>' },
+      edit: { label: 'Edit Profil', icon: '<svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 20h9"></path><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"></path></svg>' },
+      directory: { label: 'Teman Angkatan', icon: '<svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M22 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>' },
+      admin: { label: 'Admin', icon: '<svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect width="7" height="7" x="3" y="3" rx="1"></rect><rect width="7" height="7" x="14" y="3" rx="1"></rect><rect width="7" height="7" x="14" y="14" rx="1"></rect><rect width="7" height="7" x="3" y="14" rx="1"></rect></svg>' },
+    };
+
+    let currentPhotoIdx = 0;
+    let isLocked = true;
+    let panX = 0;
+    let panY = 0;
+    let dragging = false;
+    let startPos = { x: 0, y: 0 };
+    let toastTimeout = null;
+    let previewToastTimeout = null;
+    let activeMajor = 'ALL';
+
+    function toggleNavMenu() {
+      const menu = document.getElementById('nav-dropdown-menu');
+      const btn = document.getElementById('nav-dropdown-btn');
+      const chevron = document.getElementById('nav-chevron');
+      const isOpen = !menu.classList.contains('hidden');
+      menu.classList.toggle('hidden', isOpen);
+      btn.setAttribute('aria-expanded', String(!isOpen));
+      chevron.style.transform = isOpen ? 'rotate(0deg)' : 'rotate(180deg)';
+    }
+
+    function closeNavMenu() {
+      const menu = document.getElementById('nav-dropdown-menu');
+      const btn = document.getElementById('nav-dropdown-btn');
+      const chevron = document.getElementById('nav-chevron');
+      menu.classList.add('hidden');
+      btn.setAttribute('aria-expanded', 'false');
+      chevron.style.transform = 'rotate(0deg)';
+    }
+
+    document.addEventListener('click', (e) => {
+      const wrapper = document.getElementById('nav-dropdown-wrapper');
+      if (wrapper && !wrapper.contains(e.target)) {
+        closeNavMenu();
+      }
+    });
+
+    function setPage(page) {
+      document.getElementById('nav-current-label').textContent = PAGE_META[page].label;
+      document.getElementById('nav-current-icon').innerHTML = PAGE_META[page].icon;
+
+      ['preview', 'edit', 'directory', 'admin'].forEach((p) => {
+        document.getElementById('page-' + p).classList.toggle('hidden', p !== page);
+        const item = document.getElementById('menu-' + p);
+        if (p === page) {
+          item.className = 'w-full flex items-center gap-3 rounded-xl px-3 py-2.5 text-left text-xs font-semibold bg-blue-600 text-white transition mt-0.5';
+        } else {
+          item.className = 'w-full flex items-center gap-3 rounded-xl px-3 py-2.5 text-left text-xs font-medium hover:bg-white/10 transition mt-0.5';
+        }
+      });
+
+      if (page !== 'edit' && !isLocked) {
+        togglePhotoLock();
+      }
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    function togglePhotoLock() {
+      isLocked = !isLocked;
+      const dot = document.getElementById('lock-dot');
+      const badgeText = document.getElementById('lock-badge-text');
+      const btnText = document.getElementById('lock-btn-text');
+      const iconClosed = document.getElementById('icon-padlock-closed');
+      const iconOpen = document.getElementById('icon-padlock-open');
+      const drawer = document.getElementById('crop-drawer');
+      const stage = document.getElementById('edit-photo-stage');
+
+      if (isLocked) {
+        dot.className = 'h-2 w-2 rounded-full bg-emerald-400';
+        badgeText.textContent = 'Terkunci';
+        btnText.textContent = 'Buka Kunci Foto';
+        iconClosed.classList.remove('hidden');
+        iconOpen.classList.add('hidden');
+        drawer.classList.add('hidden');
+        stage.style.touchAction = 'pan-y';
+        stage.style.cursor = 'default';
+      } else {
+        dot.className = 'h-2 w-2 rounded-full bg-amber-400 animate-pulse';
+        badgeText.textContent = 'Terbuka';
+        btnText.textContent = 'Kunci Foto';
+        iconClosed.classList.add('hidden');
+        iconOpen.classList.remove('hidden');
+        drawer.classList.remove('hidden');
+        stage.style.touchAction = 'none';
+        stage.style.cursor = 'grab';
+      }
+    }
+
+    function showLockShield() {
+      const toast = document.getElementById('lock-toast');
+      toast.classList.remove('opacity-0');
+      toast.classList.add('opacity-100');
+      clearTimeout(toastTimeout);
+      toastTimeout = setTimeout(() => {
+        toast.classList.remove('opacity-100');
+        toast.classList.add('opacity-0');
+      }, 1500);
+    }
+
+    function showPreviewLockShield() {
+      const toast = document.getElementById('preview-lock-toast');
+      toast.classList.remove('opacity-0');
+      toast.classList.add('opacity-100');
+      clearTimeout(previewToastTimeout);
+      previewToastTimeout = setTimeout(() => {
+        toast.classList.remove('opacity-100');
+        toast.classList.add('opacity-0');
+      }, 1600);
+    }
+
+    function switchPhoto(index) {
+      if (isLocked) {
+        showLockShield();
+        return;
+      }
+      currentPhotoIdx = index;
+      document.getElementById('edit-img').src = PHOTOS[index];
+      document.getElementById('preview-img').src = PHOTOS[index];
+    }
+
+    document.getElementById('preview-photo-stage').addEventListener('pointerdown', () => {
+      showPreviewLockShield();
+    });
+
+    const editStage = document.getElementById('edit-photo-stage');
+    editStage.addEventListener('pointerdown', (e) => {
+      if (e.target.closest('button')) return;
+      if (isLocked) {
+        showLockShield();
+        return;
+      }
+      dragging = true;
+      startPos = { x: e.clientX - panX, y: e.clientY - panY };
+      editStage.style.cursor = 'grabbing';
+    });
+
+    window.addEventListener('pointermove', (e) => {
+      if (!dragging || isLocked) return;
+      panX = Math.max(-70, Math.min(70, e.clientX - startPos.x));
+      panY = Math.max(-70, Math.min(70, e.clientY - startPos.y));
+      applyCrop();
+    });
+
+    window.addEventListener('pointerup', () => {
+      if (dragging) {
+        dragging = false;
+        if (!isLocked) editStage.style.cursor = 'grab';
+      }
+    });
+
+    function applyCrop() {
+      const zoom = Number(document.getElementById('zoom-input').value);
+      const rot = Number(document.getElementById('rot-input').value);
+      document.getElementById('zoom-val').textContent = zoom.toFixed(2) + 'x';
+      document.getElementById('rot-val').textContent = rot + '°';
+      const transform = `translate(${panX}px, ${panY}px) scale(${zoom}) rotate(${rot}deg)`;
+      document.getElementById('edit-img').style.transform = transform;
+      document.getElementById('preview-img').style.transform = transform;
+    }
+
+    function resetCrop() {
+      panX = 0;
+      panY = 0;
+      document.getElementById('zoom-input').value = 1;
+      document.getElementById('rot-input').value = 0;
+      applyCrop();
+    }
+
+    function syncCard() {
+      document.getElementById('card-name').textContent = document.getElementById('in-name').value || 'Tanpa Nama';
+      document.getElementById('card-nickname').textContent = document.getElementById('in-nick').value || '-';
+      document.getElementById('card-major-text').textContent = document.getElementById('in-major').value;
+      document.getElementById('card-email').textContent = document.getElementById('in-email').value;
+      document.getElementById('card-bio').textContent = document.getElementById('in-bio').value;
+      document.getElementById('card-quote').textContent = '"' + document.getElementById('in-quote').value + '"';
+      document.getElementById('card-ig').textContent = document.getElementById('in-ig').value;
+      document.getElementById('card-gh').textContent = document.getElementById('in-gh').value;
+
+      const tags = document.getElementById('in-niche').value
+        .split(',')
+        .map((t) => t.trim())
+        .filter(Boolean);
+      document.getElementById('card-niches').innerHTML = tags
+        .map((t) => `<span class="surface-elevated rounded-full px-3.5 py-1 text-xs font-medium">${t}</span>`)
+        .join('');
+    }
+
+    function saveAndGoPreview() {
+      if (!isLocked) togglePhotoLock();
+      document.getElementById('preview-banner-title').textContent = 'Sip, profilmu sudah berhasil diperbarui!';
+      document.getElementById('preview-banner-desc').textContent = 'Kartu profilmu sudah siap dilihat teman-teman satu angkatan.';
+      setPage('preview');
+    }
+
+    function inspectMember(name, nick, major, npm, email, bio, quote, niches, photoIdx) {
+      document.getElementById('in-name').value = name;
+      document.getElementById('in-nick').value = nick;
+      document.getElementById('in-major').value = major;
+      document.getElementById('in-email').value = email;
+      document.getElementById('in-bio').value = bio;
+      document.getElementById('in-quote').value = quote;
+      document.getElementById('in-niche').value = niches;
+      document.getElementById('card-npm').textContent = npm;
+      currentPhotoIdx = photoIdx;
+      document.getElementById('edit-img').src = PHOTOS[photoIdx];
+      document.getElementById('preview-img').src = PHOTOS[photoIdx];
+      resetCrop();
+      syncCard();
+      document.getElementById('preview-banner-title').textContent = 'Kamu sedang melihat kartu profil ' + nick + '!';
+      document.getElementById('preview-banner-desc').textContent = 'Pilih Edit Profilku untuk kembali mengatur kartumu sendiri.';
+      setPage('preview');
+    }
+
+    function setMajorFilter(major) {
+      activeMajor = major;
+      ['ALL', 'CS', 'SI', 'AI'].forEach((m) => {
+        const btn = document.getElementById('pill-' + m);
+        btn.className = (m === major)
+          ? 'rounded-lg px-2.5 py-1.5 font-semibold bg-blue-600 text-white'
+          : 'rounded-lg px-2.5 py-1.5 surface-elevated muted-text hover:text-[var(--text-main)]';
+      });
+      filterCohort();
+    }
+
+    function filterCohort() {
+      const q = document.getElementById('peer-search').value.toLowerCase().trim();
+      document.querySelectorAll('#cohort-grid > div').forEach((card) => {
+        const m = card.getAttribute('data-major');
+        const kw = card.getAttribute('data-keywords') || '';
+        const matchMajor = activeMajor === 'ALL' || m === activeMajor;
+        const matchQuery = !q || kw.includes(q);
+        card.style.display = (matchMajor && matchQuery) ? 'flex' : 'none';
+      });
+    }
+
+    function toggleTheme() {
+      const isLight = document.documentElement.classList.toggle('light-theme');
+      document.getElementById('theme-icon-moon').classList.toggle('hidden', isLight);
+      document.getElementById('theme-icon-sun').classList.toggle('hidden', !isLight);
+    }
+  </script>
+</body>
+</html>

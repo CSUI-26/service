@@ -1,277 +1,113 @@
 import { useEffect, useState } from 'react';
+import { Link } from 'react-router';
+import { Pencil, Sparkles } from 'lucide-react';
 import { toast } from 'sonner';
-import { Save } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Textarea } from '@/components/ui/textarea';
-import { PageHeader } from '@/components/patterns/PageHeader';
-import { PageContainer } from '@/components/patterns/PageContainer';
-import { ImageUploadEditor, type ImageUploadValue } from '@/components/patterns/ImageUploadEditor';
-import { useAuth } from '@/features/auth/useAuth';
+import { ListState } from '@/components/patterns/ListState';
+import { ProfileShowcaseCard } from '@/features/members/ProfileShowcaseCard';
 import { membersApi } from '@/features/members/api';
+import type { Member } from '@/features/members/types';
 import { programsApi } from '@/features/programs/api';
 import type { Program } from '@/features/programs/types';
-import { SocialLinkField } from '@/features/members/SocialLinkField';
-import { normalizeMemberSocials, normalizeSocialLink } from '@/features/members/socialLinks';
+import { useAuth } from '@/features/auth/useAuth';
 import { useDocumentTitle } from '@/hooks/useDocumentTitle';
 
 export default function MyProfilePage() {
-  useDocumentTitle('My Profile');
+  useDocumentTitle('Profilku');
 
   const { user } = useAuth();
-  const [saving, setSaving] = useState(false);
+  const [member, setMember] = useState<Member | null>(null);
   const [programs, setPrograms] = useState<Program[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [reloadNonce, setReloadNonce] = useState(0);
 
   useEffect(() => {
-    programsApi.list().then((res) => setPrograms(res.data)).catch(() => {});
+    let active = true;
+    programsApi
+      .list()
+      .then((res) => {
+        if (active) setPrograms(res.data);
+      })
+      .catch((err) => {
+        if (active) {
+          toast.error(err instanceof Error ? err.message : 'Gagal memuat daftar prodi');
+        }
+      });
+    return () => {
+      active = false;
+    };
   }, []);
 
-  const [form, setForm] = useState({
-    name: '',
-    nama_panggilan: '',
-    email: '',
-    programId: '',
-    instagram: '',
-    line: '',
-    github: '',
-    linkedin: '',
-    deskripsi: '',
-    niche: '',
-    quotes: '',
-    foto: { url: '' } as ImageUploadValue,
-  });
-
   useEffect(() => {
-    if (!user?.npm) return;
-    let mounted = true;
+    if (!user?.npm) {
+      setLoading(false);
+      return;
+    }
+    let active = true;
+    setLoading(true);
     membersApi
       .get(user.npm)
       .then((res) => {
-        if (mounted && res.data) {
-          setForm({
-            name: res.data.name ?? '',
-            nama_panggilan: res.data.nama_panggilan ?? '',
-            email: res.data.email ?? '',
-            programId: res.data.programId ?? '',
-            instagram: res.data.instagram ?? '',
-            line: res.data.line ?? '',
-            github: res.data.github ?? '',
-            linkedin: res.data.linkedin ?? '',
-            deskripsi: res.data.deskripsi ?? '',
-            niche: res.data.niche ?? '',
-            quotes: res.data.quotes ?? '',
-            foto: res.data.foto ?? { url: '' },
-          });
+        if (active) {
+          setMember(res.data);
+          setError(null);
         }
       })
-      .catch((err) => toast.error(err instanceof Error ? err.message : 'Failed to load profile'));
-    return () => { mounted = false; };
-  }, [user?.npm]);
-
-  const handleChange = (field: string, value: string) => {
-    setForm((prev) => ({ ...prev, [field]: value }));
-  };
-
-  const emitProfileUpdated = (fotoUrl: string) => {
-    if (!user?.npm) return;
-    window.dispatchEvent(
-      new CustomEvent('zenith:profile-updated', {
-        detail: { npm: user.npm, fotoUrl },
-      }),
-    );
-  };
-
-  const handleSubmit = async (event: React.FormEvent) => {
-    event.preventDefault();
-    if (!user?.npm) return;
-    setSaving(true);
-    try {
-      const normalized = normalizeMemberSocials(form);
-      const res = await membersApi.updateMe(normalized);
-      emitProfileUpdated(res.data.foto?.url ?? normalized.foto?.url ?? '');
-      toast.success('Profile updated');
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Failed to save profile');
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const handleCommitPhoto = async (next: ImageUploadValue) => {
-    if (!user?.npm) return;
-    const foto: ImageUploadValue = {
-      url: normalizeSocialLink('photo', next.url),
-      config: next.config,
+      .catch((err) => {
+        if (active) {
+          setError(err instanceof Error ? err.message : 'Gagal memuat profil');
+        }
+      })
+      .finally(() => {
+        if (active) setLoading(false);
+      });
+    return () => {
+      active = false;
     };
-    const res = await membersApi.updateMe({ foto });
-    const savedFoto = res.data.foto ?? foto;
-    setForm((prev) => ({ ...prev, foto: savedFoto }));
-    emitProfileUpdated(savedFoto.url);
-    toast.success('Profile photo saved');
-  };
+  }, [user?.npm, reloadNonce]);
+
+  const programName =
+    programs.find((p) => p.id === member?.programId)?.name ?? member?.major ?? '';
 
   return (
-    <PageContainer>
-      <div className="mx-auto max-w-5xl space-y-6">
-        <PageHeader
-          title="My Profile"
-          description="Manage your profile and personal data."
-        />
-
-        <div className="grid gap-4 lg:grid-cols-[minmax(0,672px)_300px]">
-        <form onSubmit={handleSubmit} className="grid max-w-2xl gap-4">
-        <div className="grid gap-4 sm:grid-cols-2">
-          <div className="space-y-2">
-            <Label htmlFor="npm">NPM</Label>
-            <Input id="npm" value={user?.npm ?? ''} disabled />
+    <div className="space-y-6">
+      <div className="surface-card flex flex-wrap items-center justify-between gap-4 rounded-2xl border-primary/30 p-4 sm:px-5">
+        <div className="flex min-w-0 items-start gap-3 sm:items-center">
+          <div className="flex size-9 shrink-0 items-center justify-center rounded-xl border border-primary/30 bg-primary/15 text-primary">
+            <Sparkles className="size-4" aria-hidden="true" />
           </div>
-          <div className="space-y-2">
-            <Label htmlFor="nama_panggilan">Nickname</Label>
-            <Input
-              id="nama_panggilan"
-              value={form.nama_panggilan}
-              onChange={(e) => handleChange('nama_panggilan', e.target.value)}
-              required
-            />
+          <div className="min-w-0">
+            <p className="text-xs font-bold text-foreground sm:text-sm">
+              Ini tampilan kartu profilmu di direktori Zenith!
+            </p>
+            <p className="mt-0.5 text-xs text-muted-foreground">
+              Biar makin gampang dikenal teman satu angkatan, kamu bisa lengkapi bio, minat, dan sosmedmu lewat Edit Profilku.
+            </p>
           </div>
         </div>
 
-        <div className="grid gap-4 sm:grid-cols-2">
-          <div className="space-y-2">
-            <Label htmlFor="name">Full name</Label>
-            <Input
-              id="name"
-              value={form.name}
-              onChange={(e) => handleChange('name', e.target.value)}
-              required
-            />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="email">Email</Label>
-            <Input
-              id="email"
-              type="email"
-              value={form.email}
-              onChange={(e) => handleChange('email', e.target.value)}
-              required
-            />
-          </div>
-        </div>
+        <Button asChild size="sm" className="shrink-0 rounded-xl">
+          <Link to="/my-profile/edit">
+            <Pencil aria-hidden="true" />
+            <span>Edit Profilku</span>
+          </Link>
+        </Button>
+      </div>
 
-        <div className="grid gap-4 sm:grid-cols-2">
-          <div className="space-y-2">
-            <Label htmlFor="programId">Study program</Label>
-            <Select
-              value={form.programId}
-              onValueChange={(value) => handleChange('programId', value ?? '')}
-              required
-            >
-              <SelectTrigger id="programId" className="w-full">
-                <SelectValue placeholder="Select study program" />
-              </SelectTrigger>
-              <SelectContent>
-                {programs.map((program) => (
-                  <SelectItem key={program.id} value={program.id}>
-                    {program.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-        </div>
-
-        <div className="space-y-2">
-          <h3 className="text-sm font-semibold">Social links</h3>
-          <div className="grid gap-4 sm:grid-cols-2">
-            <SocialLinkField
-              id="instagram"
-              label="Instagram"
-              platform="instagram"
-              value={form.instagram}
-              onChange={(value) => handleChange('instagram', value)}
-            />
-            <SocialLinkField
-              id="line"
-              label="LINE"
-              platform="line"
-              value={form.line}
-              onChange={(value) => handleChange('line', value)}
-            />
-            <SocialLinkField
-              id="github"
-              label="GitHub"
-              platform="github"
-              value={form.github}
-              onChange={(value) => handleChange('github', value)}
-            />
-            <SocialLinkField
-              id="linkedin"
-              label="LinkedIn"
-              platform="linkedin"
-              value={form.linkedin}
-              onChange={(value) => handleChange('linkedin', value)}
-            />
-          </div>
-        </div>
-
-        <div className="grid gap-4 sm:grid-cols-2">
-          <div className="space-y-2">
-            <Label htmlFor="deskripsi">Description</Label>
-            <Textarea
-              id="deskripsi"
-              value={form.deskripsi}
-              onChange={(e) => handleChange('deskripsi', e.target.value)}
-              rows={3}
-            />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="niche">Niche</Label>
-            <Textarea
-              id="niche"
-              value={form.niche}
-              onChange={(e) => handleChange('niche', e.target.value)}
-              rows={3}
-            />
-          </div>
-        </div>
-
-        <div className="space-y-2">
-          <Label htmlFor="quotes">Quotes</Label>
-          <Textarea
-            id="quotes"
-            value={form.quotes}
-            onChange={(e) => handleChange('quotes', e.target.value)}
-            rows={2}
+      <ListState
+        loading={loading}
+        error={error}
+        isEmpty={!member}
+        onRetry={() => setReloadNonce((n) => n + 1)}
+      >
+        {member ? (
+          <ProfileShowcaseCard
+            member={{ ...member, programName }}
+            isOwner
           />
-        </div>
-
-        <div className="flex justify-end">
-          <Button type="submit" disabled={saving}>
-            <Save aria-hidden="true" />
-            {saving ? 'Saving...' : 'Save'}
-          </Button>
-        </div>
-      </form>
-
-        <aside className="space-y-4 lg:sticky lg:top-6">
-          <div className="rounded-xl border bg-card p-4 text-card-foreground shadow-sm">
-            <h3 className="text-sm font-semibold">Profile photo</h3>
-            <div className="mt-3">
-              <ImageUploadEditor
-                endpoint="/upload/avatar"
-                value={form.foto}
-                onChange={(foto) => setForm((prev) => ({ ...prev, foto }))}
-                onCommit={handleCommitPhoto}
-              />
-            </div>
-          </div>
-        </aside>
-      </div>
-      </div>
-    </PageContainer>
+        ) : null}
+      </ListState>
+    </div>
   );
 }
-
-

@@ -1,17 +1,25 @@
 import { useState } from 'react';
+import { Link } from 'react-router';
 import { toast } from 'sonner';
-import { GraduationCap, Plus } from 'lucide-react';
+import { GraduationCap, Pencil, Plus, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
 import { EmptyState } from '@/components/patterns/EmptyState';
 import { Kbd } from '@/components/patterns/Kbd';
 import { ListState } from '@/components/patterns/ListState';
 import { PageHeader } from '@/components/patterns/PageHeader';
 import { ConfirmDialog } from '@/components/patterns/ConfirmDialog';
-import { CardGridSkeleton } from '@/components/patterns/skeletons';
+import { ListSkeleton } from '@/components/patterns/skeletons';
 import { useDocumentTitle } from '@/hooks/useDocumentTitle';
 import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts';
 import { useResourceList } from '@/hooks/useResourceList';
-import { ProgramCard } from '@/features/programs/ProgramCard';
 import { ProgramFormDialog } from '@/features/programs/ProgramFormDialog';
 import { programsApi } from '@/features/programs/api';
 import type { ProgramFormValues } from '@/features/programs/schema';
@@ -120,12 +128,12 @@ export default function ProgramsPage() {
   };
 
   return (
-    <>
+    <div className="space-y-4">
       <PageHeader
         title="Study Programs"
         description={
           <>
-            Manage study programs and their curriculum links. Press <Kbd>n</Kbd> untuk menambah.
+            Manage study programs and their curriculum links. Press <Kbd>n</Kbd> to add.
           </>
         }
         actions={
@@ -141,7 +149,7 @@ export default function ProgramsPage() {
         error={list.error}
         isEmpty={list.data.length === 0}
         onRetry={list.reload}
-        skeleton={<CardGridSkeleton count={3} />}
+        skeleton={<ListSkeleton rows={4} />}
         empty={
           <EmptyState
             icon={GraduationCap}
@@ -156,15 +164,68 @@ export default function ProgramsPage() {
           />
         }
       >
-        <div className="grid gap-4 md:grid-cols-2">
-          {list.data.map((program) => (
-            <ProgramCard
-              key={program.id}
-              program={program}
-              onEdit={openEdit}
-              onDelete={setDeleting}
-            />
-          ))}
+        <div className="overflow-hidden rounded-xl border border-border bg-card">
+          <Table className="text-xs">
+            <TableHeader className="bg-muted/50 text-[11px] uppercase text-muted-foreground">
+              <TableRow>
+                <TableHead className="px-3 font-mono">ID</TableHead>
+                <TableHead className="px-3">Name</TableHead>
+                <TableHead className="px-3">Slug</TableHead>
+                <TableHead className="px-3 font-mono">Semesters</TableHead>
+                <TableHead className="px-3">Courses</TableHead>
+                <TableHead className="px-3 text-right">Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {list.data.map((program) => (
+                <TableRow key={program.id}>
+                  <TableCell className="px-3 font-mono font-medium text-primary">
+                    {program.id}
+                  </TableCell>
+                  <TableCell className="px-3 font-medium text-foreground">
+                    {program.name}
+                  </TableCell>
+                  <TableCell className="px-3 font-mono text-muted-foreground">
+                    {program.slug}
+                  </TableCell>
+                  <TableCell className="px-3 font-mono tabular-nums text-muted-foreground">
+                    {program.semesters.length}
+                  </TableCell>
+                  <TableCell className="px-3">
+                    <Link
+                      to={`/courses?program=${encodeURIComponent(program.id)}`}
+                      className="font-medium text-primary underline-offset-4 hover:underline"
+                    >
+                      View courses
+                    </Link>
+                  </TableCell>
+                  <TableCell className="px-3 text-right">
+                    <div className="inline-flex items-center gap-1">
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon-sm"
+                        onClick={() => openEdit(program)}
+                        aria-label={`Edit ${program.name}`}
+                      >
+                        <Pencil aria-hidden="true" />
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon-sm"
+                        onClick={() => setDeleting(program)}
+                        aria-label={`Delete ${program.name}`}
+                        className="text-destructive hover:text-destructive"
+                      >
+                        <Trash2 aria-hidden="true" />
+                      </Button>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
         </div>
       </ListState>
 
@@ -191,7 +252,6 @@ export default function ProgramsPage() {
         pending={removing}
         onConfirm={confirmDelete}
       />
-    </>
+    </div>
   );
 }
-

@@ -1,897 +1,342 @@
-﻿# `@zenith/sso-ui` Upgrade (`PIPL-CSUI/sso-ui.js` & `rkkautsar/sso-ui` Parity) Implementation Plan
+# CSUI Zenith Frontend UI/UX Rebuild (`@zenith/frontend`) Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** Implement this plan task-by-task in sequential order. Every task modifies **at most 2 files** and concludes with an explicit, deterministic verification command. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Upgrade `@zenith/sso-ui` (`packages/sso-ui`) with the full 327-entry Universitas Indonesia `kd_org` catalog, bilingual Indonesian/English `OrgDetail` metadata, string-safe CAS 1.0/2.0/3.0 XML/JSON/text parsing (`parseTagValue: false`), and a configurable `SSO` class (`validate` + `validateSafe`) following `PIPL-CSUI/sso-ui.js` and `rkkautsar/sso-ui` best practices.
+**Goal:** Rebuild `@zenith/frontend` (`apps/frontend`) to match the [`docs/PRD.md`](file:///home/antigravity/VickyIbr/CSUI26/docs/PRD.md) specification and the validated [`docs/index.html`](file:///home/antigravity/VickyIbr/CSUI26/docs/index.html) taste & UX prototype:
+1. Dark-first Zenith Obsidian theme (`#05060d` canvas, `#0c101d` surface, `#12182b` elevated, `#3b82f6` cobalt primary, ambient cobalt/crimson aura) with light-mode support.
+2. Sticky overflow-free header featuring the italic **`ZENITH`** wordmark on the left (no left logo icon) and an **icon-only Theme Toggle** placed to the left of a **right-aligned Dropdown Navigation Menu** on the right.
+3. Separate **Preview Profile (`/my-profile` — "Profilku")**, **Edit Profile (`/my-profile/edit` — "Edit Profil")**, and **Cohort Directory (`/directory` — "Teman Angkatan")** pages with warm, position-agnostic Bahasa Indonesia tips and zero developer jargon.
+4. Client-side **Lock Photo** protection in `ImageUploadEditor` and `ProfileShowcaseCard` (`touch-action: pan-y` by default so scrolling never shifts the crop or swipes photos).
+5. Simplified, utilitarian Radix/shadcn primitive `Table` views for Admin routes (`/programs`, `/courses`, `/members`, `/achievements`).
 
-**Architecture:** `@zenith/sso-ui` remains a pure, zero-Express TypeScript ESM package in `packages/sso-ui` with zero HTML/credential scraping. It uses native `URL` / `URLSearchParams`, `fetch` with `AbortController` cleanup, and `fast-xml-parser` (`parseTagValue: false`, `removeNSPrefix: true`, `trimValues: true`) so 18-digit staff `nip` numbers and leading-zero `kd_org`/`npm` strings never lose precision. Both functional exports (`getLoginUrl`, `getLogoutUrl`, `validateTicket`, `mapOrgCode`, `lookupOrgCode`, `getOrgMap`, `parseResponse`) and the `SSO` class (`new SSO(config)`) are exported for drop-in compatibility.
+**Tech Stack:** React 19, React Router (`react-router`), Vite, Tailwind CSS v4, `radix-ui`, `shadcn/ui`, `lucide-react`, `next-themes`, Vitest, Oxlint.
 
-**Tech Stack:** pnpm Workspaces, Turborepo, TypeScript 5.8, Vitest, Fastify v5, `fast-xml-parser`.
+**References:**
+- Product Requirements: [`docs/PRD.md`](file:///home/antigravity/VickyIbr/CSUI26/docs/PRD.md)
+- Interactive UX & Visual Reference: [`docs/index.html`](file:///home/antigravity/VickyIbr/CSUI26/docs/index.html)
 
-**Spec:** [`docs/PRD.md`](file:///d:/CSUI-ZenithService/docs/PRD.md)
+---
 
-## Global Constraints
+## Global Principles (`writing-plans`, `ponytail`, `ui-ux-pro-max`, `anti-slop`)
 
-- **Maximum 2 files modified per task:** Every task in this plan modifies at most 2 files and ends with a deterministic verification command.
-- **Native capabilities first (`ponytail`):** Add zero new third-party dependencies. Use native `URL`, `URLSearchParams`, `fetch`, `AbortController`, and the already-installed `fast-xml-parser` in `@zenith/sso-ui`.
-- **Strict CAS Protocol Only:** Never scrape HTML login forms or accept raw username/password credentials; only construct official CAS URLs (`/validate`, `/serviceValidate`, `/p3/serviceValidate`) and validate service tickets back-channel.
-- **UI & Design Integrity (`ui-ux-pro-max` / `anti-slop`):** No frontend UI changes are required; preserve all design tokens in `apps/frontend/DESIGN.md` and `apps/frontend/src/index.css`.
-
-## Review Focus
-
-1. **18-Digit Staff `nip` Precision Preservation:** `XMLParser` must set `parseTagValue: false` so 18-digit `nip` values (`198001012005011001` > `Number.MAX_SAFE_INTEGER`) and leading-zero `kd_org` values (`01.00.12.01`) are never coerced into IEEE-754 numbers.
-2. **Dual `kd_org` Format Resolution:** `mapOrgCode('01.00.12.01')` (full 4-segment UI code) and `mapOrgCode('12')` (CSUI short code) must both resolve to Fasilkom S1 Ilmu Komputer with both Zenith camelCase (`studyProgram`, `programType`), `PIPL-CSUI/sso-ui.js` bilingual fields (`fakultas`, `faculty`, `facultyEn`, `fak`, `fac`, `prodi`, `major`, `educationalProgram`), and `rkkautsar/sso-ui` snake_case aliases (`study_program`, `educational_program`).
-3. **Unknown or Empty `kd_org` Safety:** `mapOrgCode('99.99.99.99')` and `mapOrgCode(undefined)` must return `null` (`lookupOrgCode` returns `undefined`) without throwing.
-4. **CAS 1.0, 2.0, and 3.0 (XML & JSON) Parsing:** `parseResponse()` must handle `cas:`-prefixed XML, unprefixed XML, top-level or nested `<cas:attributes>`, CAS 3.0 JSON (`serviceResponse`), and CAS 1.0 `yes\n<username>` responses.
-5. **Non-Throwing `SSO.validateSafe()`:** `sso.validateSafe(ticket)` must catch network and CAS validation errors and return `{ success: false, error: Error }` without throwing.
+1. **Native Capabilities First (`ponytail`):**
+   - Install **zero** new third-party npm packages. Use existing workspace primitives (`radix-ui`, `shadcn/ui` components in `apps/frontend/src/components/ui/*`, `lucide-react`, `next-themes`, `react-router`) and native browser APIs (`PointerEvent`, CSS `touch-action: pan-y`, `HTMLCanvasElement`, `CustomEvent`).
+2. **Design Tokens & Typography Scale (`ui-ux-pro-max` & [`docs/index.html`](file:///home/antigravity/VickyIbr/CSUI26/docs/index.html)):**
+   - **Dark Default (`.dark`):** `--background: #05060d`, `--foreground: #f8fafc`, `--card: #0c101d`, `--muted: #12182b`, `--muted-foreground: #94a3b8`, `--primary: #3b82f6`, `--border: rgba(255, 255, 255, 0.10)`.
+   - **Light Toggle (`:root`):** `--background: #f8fafc`, `--foreground: #0f172a`, `--card: #ffffff`, `--muted: #f1f5f9`, `--muted-foreground: #475569`, `--primary: #2563eb`, `--border: #e2e8f0`.
+   - **Typography Scale:**
+     - Brand Wordmark (`.zenith-wordmark`): `font-style: italic; font-weight: 850; letter-spacing: -0.04em` with blue-white-red gradient clip.
+     - Showcase Display Name: `text-2xl sm:text-4xl font-extrabold tracking-tight leading-tight`
+     - Page Heading: `text-xl sm:text-2xl font-bold tracking-tight`
+     - Section / Card Title: `text-sm sm:text-base font-bold`
+     - Body Copy: `text-xs sm:text-sm leading-relaxed`
+     - Numerals & Codes (NPM, SKS, year, zoom/rotation): `font-mono tabular-nums` (`JetBrains Mono`)
+3. **Anti-Slop Gates (`miqdadbadjuber/anti-slop`):**
+   - **R-01 (Purposeful Surfaces):** Use `.zenith-aura` ambient radial backdrop and `.surface-card` glass panels on member showcase views; keep admin tables flat and high-density.
+   - **R-02 (Zero Em-Dashes & Buzzwords):** Never use `—` or `–` in UI copy.
+   - **R-03 (Accessible Affordances & Motion):** Every icon-only button (`ThemeToggle`, table `Edit`/`Delete`) must include an explicit `aria-label`. Transitions stay within `150ms–200ms` with `prefers-reduced-motion` support.
+   - **R-04 (Zero Dev-Only or Directional Copy):** Never render developer-facing strings (such as `"NPM & Role locked by Auth"`, `"PUT /api/v1/members/me"`, `"AdminRoute"`, `"touch-action: pan-y"`, `"1:1 WebP"`) or position-dependent instructions (such as `"Klik tombol di kanan!"` or `"di atas"`). Reference buttons by their label (**Edit Profilku**, **Buka Kunci Foto**).
+4. **Atomic Tasks (Max 2 Files per Task):**
+   - Each task below modifies at most 2 files and ends with a deterministic verification command.
 
 ---
 
 ## File Map
 
 - **Modify:**
-  - `packages/sso-ui/src/data/org_code_details.json` — Full 327-entry UI `XX.XX.XX.XX` catalog + CSUI short codes (`12`, `13`, `14`, `15`).
-  - `packages/sso-ui/src/orgMapper.ts` — Bilingual `OrgDetail` / `OrgDetails` mapper (`mapOrgCode`, `lookupOrgCode`, `getOrgMap`, `ORG_CODES`).
-  - `packages/sso-ui/src/cas.ts` — `LoginURL`/`getLoginUrl`, `LogoutURL`/`getLogoutUrl`, `ValidateURL`, `parseResponse`, `validateTicket`, and `SSO` class.
-  - `packages/sso-ui/src/index.ts` — Barrel exports for all functions, constants, types, and `SSO` default/named class.
-  - `packages/sso-ui/src/__tests__/sso-ui.test.ts` — Unit test suite covering CAS 1.0/2.0/3.0, 18-digit `nip`, full & short `kd_org`, and `SSO` class methods.
-  - `apps/backend/src/routes/auth.ts` — Include `username: user.username` on `sessionUser` from `@zenith/sso-ui`.
-  - `apps/backend/src/__tests__/api.test.ts` — Verify `/api/v1/auth/callback` populates `user.username` and resolved `user.org` for `01.00.12.01`.
+  - `apps/frontend/DESIGN.md` — Update tokens, typography, header layout, and anti-slop rules to match `docs/index.html`.
+  - `apps/frontend/src/index.css` — Add `.dark` Zenith Obsidian palette (`#05060d`, `#0c101d`, `#12182b`, `#3b82f6`) and `.zenith-aura` / `.zenith-wordmark` / `.surface-card` / `.surface-elevated` utilities.
+  - `apps/frontend/src/app/providers.tsx` — Switch `ThemeProvider` default theme to `"dark"`.
+  - `apps/frontend/src/app/navigation.ts` — Add `/my-profile` ("Profilku"), `/my-profile/edit` ("Edit Profil"), `/directory` ("Teman Angkatan"), and admin routes with subtitle descriptions.
+  - `apps/frontend/src/app/navigation.test.ts` — Update unit tests for the new route table.
+  - `apps/frontend/src/components/layout/AppHeader.tsx` — Left `ZENITH` wordmark (no logo) + right icon-only `ThemeToggle` (left of dropdown) + right-aligned `DropdownMenu` navigation.
+  - `apps/frontend/src/components/layout/AppLayout.tsx` — Streamlined top-header layout with `.zenith-aura` backdrop and overflow-safe `max-w-6xl` container.
+  - `apps/frontend/src/components/patterns/ImageUploadEditor.tsx` — Implement **Lock Photo** state (`isLocked`, `touch-action: pan-y`, **Buka Kunci Foto / Kunci Foto** toggle button, non-directional lock shield toast, auto-lock on save).
+  - `apps/frontend/src/components/patterns/ImageUploadEditor.test.tsx` — Unit tests for Lock Photo default lock, blocked pointer drag, unlock editing, and auto-lock on commit.
+  - `apps/frontend/src/features/members/MyProfilePage.tsx` — Dedicated Preview Profile page ("Profilku") with fun Bahasa Indonesia banner and `ProfileShowcaseCard`.
+  - `apps/frontend/src/app/router.tsx` — Register `/my-profile/edit` (`EditProfilePage`) and `/directory` (`CohortDirectoryPage`) inside `ProtectedRoute`.
+  - `apps/frontend/src/features/programs/ProgramsPage.tsx` — Simplify into a compact primitive `Table`.
+  - `apps/frontend/src/features/courses/CoursesPage.tsx` — Simplify into a compact primitive `Table`.
+  - `apps/frontend/src/features/members/MembersPage.tsx` — Simplify admin member directory into a compact primitive `Table`.
+- **Create:**
+  - `apps/frontend/src/features/members/ProfileShowcaseCard.tsx` — Reusable social/e-commerce showcase card with locked 1:1 photo stage, quote callout, interest pills, and platform-icon social buttons.
+  - `apps/frontend/src/features/members/EditProfilePage.tsx` — Dedicated Edit Profile page (`/my-profile/edit`) with 3 fun Bahasa Indonesia tips cards + photo crop studio + profile form.
+  - `apps/frontend/src/features/members/CohortDirectoryPage.tsx` — Dedicated Cohort Directory page (`/directory`) with fun Bahasa Indonesia guide, search/prodi filter pills, and classmate preview dialog.
+  - `apps/frontend/src/features/members/MyProfilePage.test.tsx` — Integration tests for Preview Profile, Edit Profile tips, and anti-slop copy checks.
+  - `apps/frontend/src/features/members/MembersPage.test.tsx` — Unit tests for the simplified admin members table.
 
 ---
 
-### Task 1: Populate Full UI `org_code_details.json` & Bilingual `orgMapper.ts`
+### Task 1: Align `DESIGN.md` & `index.css` Tokens with `zenith.csui.dev` and `docs/index.html`
 
-**Files:**
-- Modify: `packages/sso-ui/src/data/org_code_details.json`
-- Modify: `packages/sso-ui/src/orgMapper.ts`
+**Files (2):**
+- Modify: `apps/frontend/DESIGN.md`
+- Modify: `apps/frontend/src/index.css`
 
-- [ ] **Step 1: Populate `packages/sso-ui/src/data/org_code_details.json` with the full UI `XX.XX.XX.XX` catalog from `PIPL-CSUI/sso-ui.js` plus CSUI short codes (`12`–`15`)**
+- [ ] **Step 1: Update `apps/frontend/DESIGN.md` with the dark-first Zenith Obsidian token table, header layout spec, and anti-slop rules (`R-01`–`R-04`)**
+  - Document `.dark` default palette (`#05060d` background, `#0c101d` card, `#12182b` muted/elevated, `#3b82f6` primary) and `:root` light palette (`#f8fafc` background, `#ffffff` card, `#f1f5f9` muted, `#2563eb` primary).
+  - Document the sticky top header rule: `ZENITH` wordmark on the left (no logo icon), icon-only `ThemeToggle` + right-aligned `DropdownMenu` navigation on the right.
+  - Document copy rules: fun Bahasa Indonesia instructions on non-admin member pages, concise English on admin tables, zero dev-only text, and zero directional instructions.
 
-Run:
-```powershell
-node -e 'async function main() { const fs = require(\"node:fs\"); const txt = await (await fetch(\"https://raw.githubusercontent.com/PIPL-CSUI/sso-ui.js/master/src/kd_org/codes.ts\")).text(); const jsonStr = txt.slice(txt.indexOf(\"{\", txt.indexOf(\"ORG_CODES\"))).replace(/;\s*$/, \"\"); const rawCodes = JSON.parse(jsonStr); const merged = { ...rawCodes, \"12\": { faculty: \"Ilmu Komputer\", shortFaculty: \"Fasilkom\", major: \"Ilmu Komputer (Computer Science)\", program: \"S1 (Undergraduate Program)\" }, \"13\": { faculty: \"Ilmu Komputer\", shortFaculty: \"Fasilkom\", major: \"Sistem Informasi (Information System)\", program: \"S1 (Undergraduate Program)\" }, \"14\": { faculty: \"Ilmu Komputer\", shortFaculty: \"Fasilkom\", major: \"Kecerdasan Artifisial (Artificial Intelligence)\", program: \"S1 (Undergraduate Program)\" }, \"15\": { faculty: \"Ilmu Komputer\", shortFaculty: \"Fasilkom\", major: \"Ilmu Komputer KKI (Computer Science - Intl)\", program: \"S1 (Undergraduate Program)\" } }; fs.writeFileSync(\"packages/sso-ui/src/data/org_code_details.json\", JSON.stringify(merged, null, 2) + \"\n\"); console.log(\"Entries written:\", Object.keys(merged).length); } main();'
-```
-Expected: `Entries written: 331`
+- [ ] **Step 2: Update `apps/frontend/src/index.css` with Zenith Obsidian tokens and `.zenith-aura`, `.zenith-wordmark`, `.surface-card`, `.surface-elevated` utilities**
+  - Update `.dark` variables:
+    ```css
+    .dark {
+      --background: #05060d;
+      --foreground: #f8fafc;
+      --card: #0c101d;
+      --card-foreground: #f8fafc;
+      --popover: #0c101d;
+      --popover-foreground: #f8fafc;
+      --primary: #3b82f6;
+      --primary-foreground: #ffffff;
+      --secondary: #12182b;
+      --secondary-foreground: #f8fafc;
+      --muted: #12182b;
+      --muted-foreground: #94a3b8;
+      --accent: #12182b;
+      --accent-foreground: #60a5fa;
+      --destructive: #ef4444;
+      --border: rgba(255, 255, 255, 0.1);
+      --input: rgba(255, 255, 255, 0.12);
+      --ring: #3b82f6;
+    }
+    ```
+  - Add utility classes `.zenith-aura`, `.zenith-wordmark`, `.surface-card`, and `.surface-elevated` matching [`docs/index.html`](file:///home/antigravity/VickyIbr/CSUI26/docs/index.html).
 
-- [ ] **Step 2: Update `packages/sso-ui/src/orgMapper.ts` with bilingual `OrgDetail` / `OrgDetails` resolution**
-
-Replace `packages/sso-ui/src/orgMapper.ts` with:
-```ts
-import orgData from './data/org_code_details.json' with { type: 'json' };
-
-export interface RawOrgEntry {
-  faculty: string;
-  shortFaculty?: string;
-  major?: string;
-  program?: string;
-  studyProgram?: string;
-  programType?: string;
-  study_program?: string;
-  educational_program?: string;
-}
-
-export interface OrgDetail {
-  /** Indonesian faculty name (e.g. "Fakultas Ilmu Komputer") */
-  fakultas: string;
-  /** Faculty name (Indonesian full name, e.g. "Fakultas Ilmu Komputer") */
-  faculty: string;
-  /** English faculty name (e.g. "Faculty of Computer Science") */
-  facultyEn: string;
-  /** Short Indonesian faculty name (e.g. "Fasilkom") */
-  fak: string;
-  /** Short English faculty code (e.g. "CS") */
-  fac: string;
-  /** Indonesian department name */
-  departemen: string;
-  /** English department name */
-  department: string;
-  /** Short department code */
-  dep: string;
-  /** Indonesian study program name (e.g. "Ilmu Komputer") */
-  prodi: string;
-  /** English major name (e.g. "Computer Science") */
-  major: string;
-  /** Zenith studyProgram (clean Indonesian study program name, e.g. "Ilmu Komputer") */
-  studyProgram: string;
-  /** Zenith normalized degree level (e.g. "S1", "S2", "S3", "D3", "Profesi", "Spesialis") */
-  programType: string;
-  /** Full program label from UI catalog (e.g. "S1 Reguler (Undergraduate Program)") */
-  educationalProgram: string;
-  /** rkkautsar/sso-ui snake_case aliases */
-  study_program: string;
-  educational_program: string;
-}
-
-export type OrgDetails = OrgDetail;
-
-export const ORG_CODES: Readonly<Record<string, RawOrgEntry>> = orgData as Record<string, RawOrgEntry>;
-
-const FACULTY_EN_MAP: Record<string, { en: string; fac: string }> = {
-  'Kedokteran': { en: 'Faculty of Medicine', fac: 'FK' },
-  'Kedokteran Gigi': { en: 'Faculty of Dentistry', fac: 'FKG' },
-  'Matematika & Ilmu Pengetahuan Alam': { en: 'Faculty of Mathematics and Natural Sciences', fac: 'SCI' },
-  'Teknik': { en: 'Faculty of Engineering', fac: 'ENG' },
-  'Hukum': { en: 'Faculty of Law', fac: 'LAW' },
-  'Ekonomi': { en: 'Faculty of Economics and Business', fac: 'FEB' },
-  'Ekonomi & Bisnis': { en: 'Faculty of Economics and Business', fac: 'FEB' },
-  'Ilmu Pengetahuan Budaya': { en: 'Faculty of Humanities', fac: 'HUM' },
-  'Psikologi': { en: 'Faculty of Psychology', fac: 'FPSI' },
-  'Ilmu Sosial & Ilmu Politik': { en: 'Faculty of Social and Political Sciences', fac: 'FISIP' },
-  'Kesehatan Masyarakat': { en: 'Faculty of Public Health', fac: 'FKM' },
-  'Ilmu Komputer': { en: 'Faculty of Computer Science', fac: 'CS' },
-  'Ilmu Keperawatan': { en: 'Faculty of Nursing', fac: 'FIK' },
-  'Farmasi': { en: 'Faculty of Pharmacy', fac: 'PHARM' },
-  'Ilmu Administrasi': { en: 'Faculty of Administrative Sciences', fac: 'FIA' },
-  'Program Pendidikan Vokasi': { en: 'Vocational Education Program', fac: 'VOKASI' },
-  'Sekolah Ilmu Lingkungan': { en: 'School of Environmental Science', fac: 'SIL' },
-  'Sekolah Kajian Stratejik & Global': { en: 'School of Strategic and Global Studies', fac: 'SKSG' },
-};
-
-function normalizeFacultyId(rawFaculty: string): { base: string; full: string } {
-  const trimmed = rawFaculty.trim().replace(/^Fakultas\s+/i, '');
-  const full =
-    rawFaculty.startsWith('Fakultas') ||
-    rawFaculty.startsWith('Sekolah') ||
-    rawFaculty.startsWith('Program')
-      ? rawFaculty.trim()
-      : `Fakultas ${trimmed}`;
-  return { base: trimmed, full };
-}
-
-function extractProgramType(rawProgram: string): string {
-  const match = rawProgram.trim().match(/^(S1|S2|S3|D3|D4|Profesi|Spesialis)/i);
-  return match ? match[1] : rawProgram.trim();
-}
-
-function buildOrgDetail(raw: RawOrgEntry): OrgDetail {
-  const { base, full } = normalizeFacultyId(raw.faculty);
-  const fak = raw.shortFaculty || '';
-  const meta = FACULTY_EN_MAP[base] || { en: `Faculty of ${base}`, fac: fak };
-
-  const rawMajor = raw.major || raw.studyProgram || raw.study_program || '';
-  const majorMatch = rawMajor.match(/^(.*?)(?:\s*\((.*?)\))?$/);
-  const prodi = (majorMatch?.[1] || rawMajor).trim();
-  const majorEn = (majorMatch?.[2] || prodi).trim();
-
-  const educationalProgram =
-    raw.program || raw.educational_program || raw.programType || '';
-  const programType = raw.programType || extractProgramType(educationalProgram);
-  const studyProgram = raw.studyProgram || prodi;
-
-  return {
-    fakultas: full,
-    faculty: full,
-    facultyEn: meta.en,
-    fak,
-    fac: meta.fac,
-    departemen: base,
-    department: meta.en,
-    dep: fak,
-    prodi,
-    major: majorEn,
-    studyProgram,
-    programType,
-    educationalProgram,
-    study_program: rawMajor || studyProgram,
-    educational_program: educationalProgram,
-  };
-}
-
-const resolvedOrgMap: Record<string, OrgDetail> = Object.fromEntries(
-  Object.entries(ORG_CODES).map(([code, raw]) => [code, buildOrgDetail(raw)]),
-);
-
-/** Resolve a UI organization code to faculty and study program metadata (returns null if unknown). */
-export function mapOrgCode(kd_org?: string): OrgDetail | null {
-  if (!kd_org) return null;
-  return resolvedOrgMap[String(kd_org).trim()] ?? null;
-}
-
-/** Resolve a UI organization code (PIPL-CSUI/sso-ui.js compatible alias returning undefined if unknown). */
-export function lookupOrgCode(code?: string): OrgDetail | undefined {
-  return mapOrgCode(code) ?? undefined;
-}
-
-/** Return the read-only resolved organization code dictionary bundled with this package. */
-export function getOrgMap(): Readonly<Record<string, OrgDetail>> {
-  return resolvedOrgMap;
-}
-```
-
-- [ ] **Step 3: Verify `@zenith/sso-ui` compiles and typechecks cleanly**
-
-Run:
-```powershell
-pnpm --filter @zenith/sso-ui run build; pnpm --filter @zenith/sso-ui run lint
-```
-Expected: Exits with code `0` and zero TypeScript errors.
+- [ ] **Step 3: Deterministic Verification**
+  ```bash
+  pnpm --filter @zenith/frontend run build
+  ```
 
 ---
 
-### Task 2: Upgrade CAS 1.0/2.0/3.0 Client, String-Safe XML/JSON Parser & `SSO` Class (`cas.ts` & `index.ts`)
+### Task 2: Set Dark Theme as Default & Configure Navigation Metadata
 
-**Files:**
-- Modify: `packages/sso-ui/src/cas.ts`
-- Modify: `packages/sso-ui/src/index.ts`
+**Files (2):**
+- Modify: `apps/frontend/src/app/providers.tsx`
+- Modify: `apps/frontend/src/app/navigation.ts`
 
-- [ ] **Step 1: Upgrade `packages/sso-ui/src/cas.ts` with `PIPL-CSUI/sso-ui.js` URL builders, `parseResponse`, `validateTicket`, and `SSO` class**
+- [ ] **Step 1: Set `defaultTheme="dark"` in `apps/frontend/src/app/providers.tsx`**
+  - Update `<ThemeProvider attribute="class" defaultTheme="dark" disableTransitionOnChange>`.
 
-Replace `packages/sso-ui/src/cas.ts` with:
-```ts
-// Pure CAS 1.0 / 2.0 / 3.0 client for SSO-UI (no credential scraping, no Express session coupling)
-import { XMLParser } from 'fast-xml-parser';
-import { mapOrgCode, type OrgDetail } from './orgMapper.js';
+- [ ] **Step 2: Update `apps/frontend/src/app/navigation.ts` with member and admin navigation items**
+  - Export `NavItem` with `to`, `label`, `description`, `icon`, `end`, and `requireAdmin`:
+    - `{ to: '/my-profile', label: 'Profilku', description: 'Lihat tampilan kartu profil', icon: User, end: true }`
+    - `{ to: '/my-profile/edit', label: 'Edit Profil', description: 'Ubah bio, foto & sosmed', icon: Pencil, end: true }`
+    - `{ to: '/directory', label: 'Teman Angkatan', description: 'Jelajahi direktori Zenith 2026', icon: Users, end: true }`
+    - `{ to: '/programs', label: 'Study Programs', description: 'Manage study programs', icon: GraduationCap, requireAdmin: true }`
+    - `{ to: '/courses', label: 'Courses', description: 'Manage curriculum courses', icon: BookOpen, requireAdmin: true }`
+    - `{ to: '/members', label: 'Members (Admin)', description: 'Manage member records & roles', icon: Users, requireAdmin: true }`
+    - `{ to: '/achievements', label: 'Achievements', description: 'Manage featured & yearly awards', icon: Trophy, requireAdmin: true }`
 
-export type CASVersion = '1.0' | '2.0' | '3.0';
-
-export const DEFAULT_CAS_URL = 'https://sso.ui.ac.id/cas2';
-export const CAS_BASE = DEFAULT_CAS_URL;
-export const CAS_LOGIN_URL = `${CAS_BASE}/login`;
-export const CAS_VALIDATE_URL = `${CAS_BASE}/serviceValidate`;
-export const CAS_LOGOUT_URL = `${CAS_BASE}/logout`;
-
-export interface LoginUrlOptions {
-  serviceUrl?: string;
-  renew?: boolean;
-  gateway?: boolean;
-}
-
-export interface LogoutUrlOptions {
-  serviceUrl?: string;
-  url?: string;
-}
-
-export interface ValidateTicketOptions {
-  serviceUrl?: string;
-  version?: CASVersion;
-  signal?: AbortSignal;
-  fetchOptions?: RequestInit;
-}
-
-export interface SSOConfig {
-  casUrl?: string;
-  version?: CASVersion;
-  serviceUrl?: string;
-  /** Alias for serviceUrl (rkkautsar/sso-ui compatibility) */
-  url?: string;
-  session_sso?: string;
-  timeoutMs?: number;
-  fetch?: typeof globalThis.fetch;
-}
-
-export type SSOOptions = SSOConfig;
-
-export interface CasUser {
-  username: string;
-  nama: string;
-  name: string;
-  npm?: string;
-  nip?: string;
-  role?: string;
-  kd_org?: string;
-  orgCode?: string;
-  org_code?: string;
-  email?: string;
-  ldapCn?: string;
-  org: OrgDetail | null;
-  organization?: OrgDetail;
-  rawAttributes: Record<string, string>;
-}
-
-export type SSOUser = CasUser;
-
-export type ValidateSafeResult =
-  | { success: true; user: CasUser; error?: never }
-  | { success: false; user?: never; error: Error };
-
-const xmlParser = new XMLParser({
-  removeNSPrefix: true,
-  trimValues: true,
-  parseTagValue: false,
-  ignoreAttributes: false,
-  attributeNamePrefix: '@_',
-});
-
-export function normalize(url?: string): string {
-  return (url || DEFAULT_CAS_URL).trim().replace(/\/+$/, '');
-}
-
-export function LoginURL(casUrl: string, serviceUrl?: string, options?: LoginUrlOptions): string {
-  const url = new URL(`${normalize(casUrl)}/login`);
-  const serv = options?.serviceUrl || serviceUrl;
-  if (serv) url.searchParams.set('service', serv);
-  if (options?.renew) url.searchParams.set('renew', 'true');
-  if (options?.gateway) url.searchParams.set('gateway', 'true');
-  return url.toString();
-}
-
-export function LogoutURL(casUrl: string, options?: LogoutUrlOptions | string): string {
-  const url = new URL(`${normalize(casUrl)}/logout`);
-  const opts = typeof options === 'string' ? { url: options } : options;
-  const redir = opts?.url || opts?.serviceUrl;
-  if (redir) {
-    url.searchParams.set('url', redir);
-  }
-  return url.toString();
-}
-
-export function ValidateURL(
-  casUrl: string,
-  serviceUrl: string,
-  ticket: string,
-  version: CASVersion = '2.0',
-): string {
-  let path = '/serviceValidate';
-  if (version === '1.0') path = '/validate';
-  else if (version === '3.0') path = '/p3/serviceValidate';
-
-  const url = new URL(`${normalize(casUrl)}${path}`);
-  url.searchParams.set('ticket', ticket.trim());
-  url.searchParams.set('service', serviceUrl);
-  return url.toString();
-}
-
-/** Build the SSO UI CAS 2.0 login redirect URL. */
-export function getLoginUrl(serviceUrl: string, options?: LoginUrlOptions): string {
-  const base = `${CAS_LOGIN_URL}?service=${encodeURIComponent(serviceUrl)}`;
-  const withRenew = options?.renew ? `${base}&renew=true` : base;
-  return options?.gateway ? `${withRenew}&gateway=true` : withRenew;
-}
-
-/** Build the SSO UI CAS 2.0 logout redirect URL. */
-export function getLogoutUrl(returnUrl: string): string {
-  return `${CAS_LOGOUT_URL}?url=${encodeURIComponent(returnUrl)}`;
-}
-
-function readAttr(attrs: Record<string, string>, key: string): string | undefined {
-  const value = attrs[key];
-  if (value === undefined || value === null) return undefined;
-  const trimmed = String(value).trim();
-  return trimmed.length > 0 ? trimmed : undefined;
-}
-
-function buildUser(username: string, attrs: Record<string, string>): CasUser {
-  const nama =
-    readAttr(attrs, 'nama') ??
-    readAttr(attrs, 'name') ??
-    readAttr(attrs, 'ldap_cn') ??
-    username;
-  const npm = readAttr(attrs, 'npm');
-  const nip = readAttr(attrs, 'nip');
-  const role = readAttr(attrs, 'peran_user') ?? readAttr(attrs, 'role');
-  const kd_org = readAttr(attrs, 'kd_org') ?? readAttr(attrs, 'org_code');
-  const email = readAttr(attrs, 'email') ?? readAttr(attrs, 'mail');
-  const ldapCn = readAttr(attrs, 'ldap_cn');
-  const org = mapOrgCode(kd_org);
-
-  return {
-    username,
-    nama,
-    name: nama,
-    npm,
-    nip,
-    role,
-    kd_org,
-    orgCode: kd_org,
-    org_code: kd_org,
-    email,
-    ldapCn,
-    org,
-    organization: org ?? undefined,
-    rawAttributes: attrs,
-  };
-}
-
-/** Parse a CAS 1.0, 2.0, or 3.0 response body (XML, JSON, or plain text) into a normalized CasUser. */
-export function parseResponse(body: string, version: CASVersion = '2.0'): CasUser {
-  if (version === '1.0') {
-    const lines = body
-      .split(/\r?\n/)
-      .map((l) => l.trim())
-      .filter(Boolean);
-    if (lines[0]?.toLowerCase() === 'yes' && lines[1]) {
-      return buildUser(lines[1], { username: lines[1] });
-    }
-    throw new Error(
-      lines[0]?.toLowerCase() === 'no'
-        ? 'INVALID_TICKET: CAS 1.0 ticket validation failed'
-        : `INVALID_TICKET: Invalid CAS 1.0 response`,
-    );
-  }
-
-  const trimmed = body.trim();
-
-  if (trimmed.startsWith('{') && trimmed.endsWith('}')) {
-    const data = JSON.parse(trimmed);
-    const sResp = data.serviceResponse || data;
-    if (sResp.authenticationFailure) {
-      const fail = sResp.authenticationFailure;
-      const code = fail.code || 'INVALID_TICKET';
-      const desc = fail.description || fail.message || 'Ticket validation failed';
-      throw new Error(`${code}: ${desc}`);
-    }
-    const success = sResp.authenticationSuccess;
-    if (!success) {
-      throw new Error('INVALID_TICKET: Missing authenticationSuccess in CAS JSON response');
-    }
-    const attrs: Record<string, string> = {};
-    if (success.attributes && typeof success.attributes === 'object') {
-      for (const [k, v] of Object.entries(success.attributes)) {
-        const first = Array.isArray(v) ? v[0] : v;
-        if (first !== undefined && first !== null) {
-          attrs[k] = String(first).trim();
-        }
-      }
-    }
-    const username = String(success.user ?? attrs.nama ?? attrs.name ?? '').trim();
-    return buildUser(username, attrs);
-  }
-
-  const parsed = xmlParser.parse(trimmed);
-  const resp = parsed?.serviceResponse || parsed;
-  const success = resp?.authenticationSuccess;
-  if (!success) {
-    const failure = resp?.authenticationFailure;
-    const code = (typeof failure === 'object' && failure?.['@_code']) || 'INVALID_TICKET';
-    const msg =
-      typeof failure === 'string'
-        ? failure
-        : failure?.['#text'] || 'Ticket validation failed';
-    throw new Error(`${code}: ${msg}`);
-  }
-
-  const rawAttrs = (success.attributes || {}) as Record<string, unknown>;
-  const attrs: Record<string, string> = {};
-
-  for (const [k, v] of Object.entries(rawAttrs)) {
-    if (!k.startsWith('@_')) {
-      const first = Array.isArray(v) ? v[0] : v;
-      if (first !== undefined && first !== null) {
-        attrs[k] = String(first).trim();
-      }
-    }
-  }
-
-  for (const [k, v] of Object.entries(success as Record<string, unknown>)) {
-    if (k !== 'user' && k !== 'attributes' && !k.startsWith('@_') && typeof v !== 'object') {
-      if (!attrs[k] && v !== undefined && v !== null) {
-        attrs[k] = String(v).trim();
-      }
-    }
-  }
-
-  const username =
-    success.user !== undefined && success.user !== null ? String(success.user).trim() : '';
-  return buildUser(username, attrs);
-}
-
-/** Validate a CAS 2.0 service ticket and resolve UI organization metadata. */
-export async function validateTicket(
-  ticket: string,
-  serviceUrl: string,
-  options?: ValidateTicketOptions,
-): Promise<CasUser> {
-  const version = options?.version ?? '2.0';
-  const url = `${CAS_VALIDATE_URL}?ticket=${encodeURIComponent(ticket.trim())}&service=${encodeURIComponent(serviceUrl)}`;
-  const res = await fetch(url, {
-    signal: options?.signal ?? AbortSignal.timeout(10_000),
-    ...options?.fetchOptions,
-  });
-  if (!res.ok) throw new Error(`CAS validate failed: ${res.status}`);
-
-  const text = await res.text();
-  return parseResponse(text, version);
-}
-
-/** Configurable CAS client class compatible with PIPL-CSUI/sso-ui.js & rkkautsar/sso-ui. */
-export class SSO {
-  public readonly casUrl: string;
-  public readonly serviceUrl?: string;
-  public readonly version: CASVersion;
-  public readonly timeoutMs: number;
-  public readonly fetchFn: typeof globalThis.fetch;
-
-  constructor(config: SSOConfig = {}) {
-    this.casUrl = normalize(config.casUrl || DEFAULT_CAS_URL);
-    this.serviceUrl = config.serviceUrl || config.url;
-    this.version = config.version || '2.0';
-    this.timeoutMs = config.timeoutMs ?? 10_000;
-    this.fetchFn = config.fetch || globalThis.fetch;
-  }
-
-  loginUrl(serviceUrl?: string, options?: LoginUrlOptions): string {
-    return LoginURL(this.casUrl, serviceUrl || this.serviceUrl, options);
-  }
-
-  logoutUrl(options?: LogoutUrlOptions | string): string {
-    if (typeof options === 'string') {
-      return LogoutURL(this.casUrl, { url: options });
-    }
-    return LogoutURL(this.casUrl, { serviceUrl: this.serviceUrl, ...options });
-  }
-
-  parseOrg(kd_org?: string): OrgDetail | null {
-    return mapOrgCode(kd_org);
-  }
-
-  async validate(ticket: string, options?: ValidateTicketOptions | string): Promise<CasUser> {
-    if (!ticket) throw new Error('Ticket is required');
-    const serviceUrl =
-      typeof options === 'string' ? options : options?.serviceUrl || this.serviceUrl;
-    if (!serviceUrl) throw new Error('serviceUrl is required for ticket validation');
-
-    const version = (typeof options === 'object' && options?.version) || this.version;
-    const url = ValidateURL(this.casUrl, serviceUrl, ticket, version);
-
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), this.timeoutMs);
-
-    if (typeof options === 'object' && options?.signal) {
-      options.signal.addEventListener(
-        'abort',
-        () => controller.abort(options.signal?.reason),
-        { once: true },
-      );
-    }
-
-    try {
-      const resp = await this.fetchFn(url, {
-        method: 'GET',
-        signal: controller.signal,
-        ...(typeof options === 'object' ? options?.fetchOptions : {}),
-      });
-      if (!resp.ok) throw new Error(`CAS validate failed: ${resp.status}`);
-      const text = await resp.text();
-      return parseResponse(text, version);
-    } finally {
-      clearTimeout(timeout);
-    }
-  }
-
-  async validateSafe(
-    ticket: string,
-    options?: ValidateTicketOptions | string,
-  ): Promise<ValidateSafeResult> {
-    try {
-      const user = await this.validate(ticket, options);
-      return { success: true, user };
-    } catch (err: unknown) {
-      return {
-        success: false,
-        error: err instanceof Error ? err : new Error(String(err)),
-      };
-    }
-  }
-}
-
-export default SSO;
-```
-
-- [ ] **Step 2: Update `packages/sso-ui/src/index.ts` to re-export all functions, types, and `SSO`**
-
-Replace `packages/sso-ui/src/index.ts` with:
-```ts
-export {
-  DEFAULT_CAS_URL,
-  CAS_BASE,
-  CAS_LOGIN_URL,
-  CAS_VALIDATE_URL,
-  CAS_LOGOUT_URL,
-  normalize,
-  LoginURL,
-  LogoutURL,
-  ValidateURL,
-  getLoginUrl,
-  getLogoutUrl,
-  parseResponse,
-  validateTicket,
-  SSO,
-  type CASVersion,
-  type LoginUrlOptions,
-  type LogoutUrlOptions,
-  type ValidateTicketOptions,
-  type SSOConfig,
-  type SSOOptions,
-  type CasUser,
-  type SSOUser,
-  type ValidateSafeResult,
-} from './cas.js';
-
-export {
-  ORG_CODES,
-  mapOrgCode,
-  lookupOrgCode,
-  getOrgMap,
-  type RawOrgEntry,
-  type OrgDetail,
-  type OrgDetails,
-} from './orgMapper.js';
-
-export { SSO as default } from './cas.js';
-```
-
-- [ ] **Step 3: Verify `@zenith/sso-ui` builds and typechecks cleanly**
-
-Run:
-```powershell
-pnpm --filter @zenith/sso-ui run build; pnpm --filter @zenith/sso-ui run lint
-```
-Expected: Exits with code `0` and zero errors.
+- [ ] **Step 3: Deterministic Verification**
+  ```bash
+  pnpm --filter @zenith/frontend run lint
+  ```
 
 ---
 
-### Task 3: Update & Expand `@zenith/sso-ui` Unit Tests (`sso-ui.test.ts`)
+### Task 3: Update Navigation Unit Tests
 
-**Files:**
-- Modify: `packages/sso-ui/src/__tests__/sso-ui.test.ts`
+**Files (1):**
+- Modify: `apps/frontend/src/app/navigation.test.ts`
 
-- [ ] **Step 1: Update `packages/sso-ui/src/__tests__/sso-ui.test.ts` to cover full UI `01.00.12.01` & short `12`–`15` org mapping, 18-digit `nip` string safety, CAS 1.0/2.0/3.0 parsing, and the `SSO` class (`validate` + `validateSafe`)**
+- [ ] **Step 1: Update `apps/frontend/src/app/navigation.test.ts` to cover `/my-profile`, `/my-profile/edit`, `/directory`, and admin routes**
+  - Verify `isNavItemActive('/my-profile', navItems[0])` is `true` and `isNavItemActive('/my-profile/edit', navItems[0])` is `false` (because `end: true`).
+  - Verify `findNavItem('/my-profile/edit')?.label === 'Edit Profil'` and `findNavItem('/directory')?.label === 'Teman Angkatan'`.
 
-Replace `packages/sso-ui/src/__tests__/sso-ui.test.ts` with:
-```ts
-import { afterEach, describe, expect, it, vi } from 'vitest';
-import SSO, {
-  CAS_LOGIN_URL,
-  CAS_LOGOUT_URL,
-  CAS_VALIDATE_URL,
-  ValidateURL,
-  getLoginUrl,
-  getLogoutUrl,
-  getOrgMap,
-  lookupOrgCode,
-  mapOrgCode,
-  parseResponse,
-  validateTicket,
-} from '../index.js';
-
-describe('@zenith/sso-ui', () => {
-  afterEach(() => {
-    vi.unstubAllGlobals();
-  });
-
-  describe('URL builders', () => {
-    it('builds login URL with renew=true and gateway=true', () => {
-      const service = 'https://zenith.csui.dev/auth/callback';
-      expect(getLoginUrl(service)).toBe(
-        `${CAS_LOGIN_URL}?service=${encodeURIComponent(service)}`,
-      );
-      expect(getLoginUrl(service, { renew: true })).toBe(
-        `${CAS_LOGIN_URL}?service=${encodeURIComponent(service)}&renew=true`,
-      );
-      expect(getLoginUrl(service, { renew: true, gateway: true })).toBe(
-        `${CAS_LOGIN_URL}?service=${encodeURIComponent(service)}&renew=true&gateway=true`,
-      );
-    });
-
-    it('builds URL-encoded logout URL and versioned ValidateURL', () => {
-      const returnUrl = 'https://zenith.csui.dev/login?next=/profile';
-      expect(getLogoutUrl(returnUrl)).toBe(
-        `${CAS_LOGOUT_URL}?url=${encodeURIComponent(returnUrl)}`,
-      );
-      expect(ValidateURL('https://sso.ui.ac.id/cas2/', returnUrl, 'ST-1', '1.0')).toContain(
-        '/cas2/validate?',
-      );
-      expect(ValidateURL('https://sso.ui.ac.id/cas2', returnUrl, 'ST-3', '3.0')).toContain(
-        '/cas2/p3/serviceValidate?',
-      );
-    });
-  });
-
-  describe('orgMapper', () => {
-    it('resolves both full UI XX.XX.XX.XX codes and CSUI short codes (12..15)', () => {
-      const fullCs = mapOrgCode('01.00.12.01');
-      expect(fullCs).toMatchObject({
-        fakultas: 'Fakultas Ilmu Komputer',
-        faculty: 'Fakultas Ilmu Komputer',
-        facultyEn: 'Faculty of Computer Science',
-        fak: 'Fasilkom',
-        fac: 'CS',
-        prodi: 'Ilmu Komputer',
-        major: 'Computer Science',
-        studyProgram: 'Ilmu Komputer',
-        programType: 'S1',
-        study_program: 'Ilmu Komputer (Computer Science)',
-        educational_program: 'S1 Reguler (Undergraduate Program)',
-      });
-
-      expect(mapOrgCode('12')).toMatchObject({
-        faculty: 'Fakultas Ilmu Komputer',
-        studyProgram: 'Ilmu Komputer',
-        programType: 'S1',
-      });
-      expect(mapOrgCode('13')).toMatchObject({
-        faculty: 'Fakultas Ilmu Komputer',
-        studyProgram: 'Sistem Informasi',
-        programType: 'S1',
-      });
-      expect(lookupOrgCode('06.00.12.01')?.studyProgram).toBe('Sistem Informasi');
-      expect(mapOrgCode('99.99.99.99')).toBeNull();
-      expect(lookupOrgCode('99.99.99.99')).toBeUndefined();
-      expect(mapOrgCode(undefined)).toBeNull();
-      expect(Object.keys(getOrgMap()).length).toBeGreaterThan(300);
-    });
-  });
-
-  describe('validateTicket & parseResponse', () => {
-    it('parses cas:-prefixed CAS 2.0 success XML and resolves full UI kd_org', async () => {
-      const xml = `
-        <cas:serviceResponse xmlns:cas="http://www.yale.edu/tp/cas">
-          <cas:authenticationSuccess>
-            <cas:user>budi.santoso</cas:user>
-            <cas:attributes>
-              <cas:nama>Budi Santoso</cas:nama>
-              <cas:npm> 0606888572 </cas:npm>
-              <cas:peran_user>mahasiswa</cas:peran_user>
-              <cas:kd_org>01.00.12.01</cas:kd_org>
-              <cas:email>budi@ui.ac.id</cas:email>
-            </cas:attributes>
-          </cas:authenticationSuccess>
-        </cas:serviceResponse>
-      `;
-
-      const fetchMock = vi.fn().mockResolvedValue(new Response(xml, { status: 200 }));
-      vi.stubGlobal('fetch', fetchMock);
-
-      const user = await validateTicket('ST-123', 'https://zenith.csui.dev/auth/callback');
-
-      expect(fetchMock).toHaveBeenCalledWith(
-        `${CAS_VALIDATE_URL}?ticket=ST-123&service=${encodeURIComponent('https://zenith.csui.dev/auth/callback')}`,
-        expect.objectContaining({ signal: expect.any(AbortSignal) }),
-      );
-      expect(user).toMatchObject({
-        username: 'budi.santoso',
-        nama: 'Budi Santoso',
-        name: 'Budi Santoso',
-        npm: '0606888572',
-        nip: undefined,
-        role: 'mahasiswa',
-        kd_org: '01.00.12.01',
-        orgCode: '01.00.12.01',
-        org_code: '01.00.12.01',
-        email: 'budi@ui.ac.id',
-        org: expect.objectContaining({
-          faculty: 'Fakultas Ilmu Komputer',
-          studyProgram: 'Ilmu Komputer',
-          programType: 'S1',
-        }),
-      });
-    });
-
-    it('preserves 18-digit staff nip strings without IEEE-754 precision loss and handles unmapped kd_org', async () => {
-      const xml = `
-        <serviceResponse>
-          <authenticationSuccess>
-            <user>dr.staff</user>
-            <attributes>
-              <name>Dr. Staff</name>
-              <nip>198001012005011009</nip>
-              <role>dosen</role>
-              <kd_org>99.99.99.99</kd_org>
-              <mail>staff@ui.ac.id</mail>
-              <mail>alt@ui.ac.id</mail>
-            </attributes>
-          </authenticationSuccess>
-        </serviceResponse>
-      `;
-
-      vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(xml, { status: 200 })));
-
-      const user = await validateTicket('ST-STAFF', 'https://zenith.csui.dev/auth/callback');
-      expect(user.nip).toBe('198001012005011009');
-      expect(user.org).toBeNull();
-      expect(user.organization).toBeUndefined();
-      expect(user.email).toBe('staff@ui.ac.id');
-    });
-
-    it('parses CAS 1.0 plain-text and CAS 3.0 JSON responses', () => {
-      const cas1User = parseResponse('yes\nraditya.dika\n', '1.0');
-      expect(cas1User.username).toBe('raditya.dika');
-      expect(cas1User.nama).toBe('raditya.dika');
-
-      const cas3Json = JSON.stringify({
-        serviceResponse: {
-          authenticationSuccess: {
-            user: 'siti.aminah',
-            attributes: {
-              nama: ['Siti Aminah'],
-              npm: ['2406123456'],
-              kd_org: ['06.00.12.01'],
-            },
-          },
-        },
-      });
-      const cas3User = parseResponse(cas3Json, '3.0');
-      expect(cas3User.username).toBe('siti.aminah');
-      expect(cas3User.org?.studyProgram).toBe('Sistem Informasi');
-    });
-
-    it('supports SSO class validate and non-throwing validateSafe', async () => {
-      const sso = new SSO({
-        serviceUrl: 'https://zenith.csui.dev/auth/callback',
-        fetch: vi.fn().mockResolvedValue(
-          new Response(
-            `<cas:serviceResponse xmlns:cas="http://www.yale.edu/tp/cas">
-              <cas:authenticationFailure code="INVALID_TICKET">Ticket ST-BAD not recognized</cas:authenticationFailure>
-            </cas:serviceResponse>`,
-            { status: 200 },
-          ),
-        ),
-      });
-
-      expect(sso.loginUrl(undefined, { renew: true })).toContain('renew=true');
-      expect(sso.logoutUrl('https://zenith.csui.dev')).toContain('url=');
-      expect(sso.parseOrg('12')?.studyProgram).toBe('Ilmu Komputer');
-
-      const safeRes = await sso.validateSafe('ST-BAD');
-      expect(safeRes.success).toBe(false);
-      if (!safeRes.success) {
-        expect(safeRes.error.message).toContain('INVALID_TICKET: Ticket ST-BAD not recognized');
-      }
-
-      vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response('Bad Gateway', { status: 502 })));
-      await expect(
-        validateTicket('ST-ERR', 'https://zenith.csui.dev/auth/callback'),
-      ).rejects.toThrow('CAS validate failed: 502');
-    });
-  });
-});
-```
-
-- [ ] **Step 2: Build, lint, and run the `@zenith/sso-ui` unit tests**
-
-Run:
-```powershell
-pnpm --filter @zenith/sso-ui run build; pnpm --filter @zenith/sso-ui run lint; pnpm --filter @zenith/sso-ui test
-```
-Expected: All tests in `src/__tests__/sso-ui.test.ts` and `dist/__tests__/sso-ui.test.js` pass (`0` failures).
+- [ ] **Step 2: Deterministic Verification**
+  ```bash
+  pnpm --filter @zenith/frontend test -- src/app/navigation.test.ts
+  ```
 
 ---
 
-### Task 4: Expose `username` & Full `01.00.12.01` `org` Metadata in Backend Auth Callback (`auth.ts` & `api.test.ts`)
+### Task 4: Build Wordmark-Only Sticky Header with Icon-Only Theme Toggle & Right-Aligned Dropdown Navigation
 
-**Files:**
-- Modify: `apps/backend/src/routes/auth.ts`
-- Modify: `apps/backend/src/__tests__/api.test.ts`
+**Files (2):**
+- Modify: `apps/frontend/src/components/layout/AppHeader.tsx`
+- Modify: `apps/frontend/src/components/layout/AppLayout.tsx`
 
-- [ ] **Step 1: Include `username: user.username` in `sessionUser` inside `apps/backend/src/routes/auth.ts`**
+- [ ] **Step 1: Rebuild `apps/frontend/src/components/layout/AppHeader.tsx` matching `docs/index.html`**
+  - **Left side:** Link to `/my-profile` displaying only `<span className="zenith-wordmark text-xl tracking-tight pr-1 select-none">ZENITH</span>` (no left icon/logo).
+  - **Right side:**
+    1. Icon-only `<ThemeToggle />` button on the left of the dropdown (`aria-label` preserved).
+    2. Right-aligned `<DropdownMenu>` trigger button showing the current active route's icon, label (e.g., `Profilku`), and a `ChevronDown` icon.
+    3. `<DropdownMenuContent align="end" className="w-64 rounded-2xl p-1.5">` listing member pages (**Profilku**, **Edit Profil**, **Teman Angkatan**), a separator + admin section when `user?.isAdmin` is true, and a bottom **Keluar / Log out** item calling `logout()`.
 
-In `apps/backend/src/routes/auth.ts`, update `sessionUser`:
-```ts
-      const sessionUser = {
-        username: user.username,
-        nama: user.nama,
-        npm: npm,
-        nip: user.nip,
-        role: role,
-        kd_org: user.kd_org,
-        email: user.email,
-        isAdmin,
-        isWhitelisted,
-        isSuperAdmin,
-        org: user.org,
-      };
-```
+- [ ] **Step 2: Simplify `apps/frontend/src/components/layout/AppLayout.tsx` to use the top-header shell + `.zenith-aura`**
+  - Remove `<AppSidebar />` and `<SidebarProvider>` wrapper from `AppLayout.tsx` so the app uses the clean, overflow-free sticky top header + `<div className="zenith-aura" aria-hidden="true" />` and `<main id="main-content" className="mx-auto w-full max-w-6xl flex-1 px-4 py-6 sm:px-6 sm:py-8">`.
 
-- [ ] **Step 2: Assert `username` and resolved `01.00.12.01` `org` in `apps/backend/src/__tests__/api.test.ts`**
+- [ ] **Step 3: Deterministic Verification**
+  ```bash
+  pnpm --filter @zenith/frontend run lint
+  ```
 
-In `apps/backend/src/__tests__/api.test.ts`, inside `it('deduplicates repeated GET /api/v1/auth/callback requests for the same single-use CAS ticket', ...)`, assert:
-```ts
-      expect(firstRes.json().data.user).toMatchObject({
-        username: 'vicky.ibrahimovic',
-        npm: '2606888572',
-        org: expect.objectContaining({
-          faculty: 'Fakultas Ilmu Komputer',
-          studyProgram: 'Ilmu Komputer',
-          programType: 'S1',
-        }),
-      });
-```
+---
 
-- [ ] **Step 3: Run full workspace build, lint, and integration tests**
+### Task 5: Add Lock Photo Gesture Protection to `ImageUploadEditor` & Update Unit Tests
 
-Run:
-```powershell
-$env:JWT_SECRET = 'dev-ci-verification-secret'; pnpm turbo run build lint test --force
-```
-Expected: `11 successful, 11 total` (`@zenith/shared`, `@zenith/sso-ui`, `@zenith/backend`, `@zenith/frontend` all pass with exit code `0`).
+**Files (2):**
+- Modify: `apps/frontend/src/components/patterns/ImageUploadEditor.tsx`
+- Modify: `apps/frontend/src/components/patterns/ImageUploadEditor.test.tsx`
+
+- [ ] **Step 1: Implement Client-Side Lock Photo in `apps/frontend/src/components/patterns/ImageUploadEditor.tsx`**
+  - Add state:
+    - `const [isLocked, setIsLocked] = useState<boolean>(() => Boolean(value.url));`
+    - `const [showLockHint, setShowLockHint] = useState(false);`
+  - Sync lock state when `value.url` loads asynchronously (if `!pendingFileUrl && value.url` transitions from empty to non-empty, set `isLocked(true)`).
+  - When a new file is selected in `handleFileChange`, automatically set `setIsLocked(false)` so the user can crop immediately.
+  - When `previewSrc` is present:
+    - Render a top overlay bar inside the 1:1 photo stage with:
+      - Status pill: `Terkunci` (emerald dot) when `isLocked`, or `Terbuka` (amber pulsing dot) when unlocked.
+      - Toggle button (`type="button"`, `aria-pressed={isLocked}`, `aria-label={isLocked ? 'Buka Kunci Foto' : 'Kunci Foto'}`): displays `Lock` / `Unlock` icon + label `Buka Kunci Foto` (when locked) or `Kunci Foto` (when unlocked).
+    - When `isLocked === true`:
+      - Set `style={{ aspectRatio: aspectToCss(activeConfig.aspect), touchAction: 'pan-y' }}` and `cursor-default`.
+      - If the user triggers `onPointerDown` on the image container (outside buttons), do **not** start dragging; instead flash `showLockHint = true` for `1500ms` showing the non-directional overlay: *"Foto masih dikunci. Tekan Buka Kunci Foto untuk mengatur posisi."*
+      - Hide/disable the zoom slider, rotation slider, 90-degree rotate button, and reset button so the interface stays clean and accidental touches cannot alter `config`.
+    - When `isLocked === false`:
+      - Enable `handlePointerDown` / `handlePointerMove` / `handlePointerEnd` with `touch-none cursor-grab`.
+      - Show the zoom, rotation, and reset controls.
+    - When `handleApplyUpload()` or `handleCommitCurrent()` succeeds, automatically set `setIsLocked(true)`.
+
+- [ ] **Step 2: Update `apps/frontend/src/components/patterns/ImageUploadEditor.test.tsx`**
+  - Test that when initialized with a saved `value.url`, the photo starts locked (`aria-pressed="true"`, button `Buka Kunci Foto`), dragging does not fire `onChange`, and the lock hint alert appears.
+  - Test that clicking `Buka Kunci Foto` unlocks the editor, reveals `Zoom image`, `Rotate 90 degrees`, `Fine rotation`, and `Reset position`, allows pointer drag to update `x`/`y`, and auto-locks after clicking `Save photo`.
+
+- [ ] **Step 3: Deterministic Verification**
+  ```bash
+  pnpm --filter @zenith/frontend test -- src/components/patterns/ImageUploadEditor.test.tsx
+  ```
+
+---
+
+### Task 6: Create `ProfileShowcaseCard` & Rebuild Dedicated Preview Page (`MyProfilePage.tsx`)
+
+**Files (2):**
+- Create: `apps/frontend/src/features/members/ProfileShowcaseCard.tsx`
+- Modify: `apps/frontend/src/features/members/MyProfilePage.tsx`
+
+- [ ] **Step 1: Create `apps/frontend/src/features/members/ProfileShowcaseCard.tsx` matching `docs/index.html` Page 1**
+  - Accepts `member: Partial<Member> & { npm?: string; programName?: string }` and optional `isOwner?: boolean`.
+  - **Left column (1:1 Locked Photo Stage):**
+    - Renders the member's 1:1 photo with `objectPosition` and `transform` derived from `member.foto?.config`, `style={{ touchAction: 'pan-y' }}`.
+    - Top-left pill badge with `Lock` icon + `"Foto Terkunci"`.
+    - Tapping/dragging the photo stage flashes the non-directional hint overlay: *"Foto sedang dikunci. Buka menu Edit Profil untuk mengatur posisi foto."*
+  - **Right column (Member Details):**
+    - Study program pill (`GraduationCap` icon + major/program name) + monospace NPM pill.
+    - Display name (`h1` / `h2`), nickname with `Sparkles` icon, and email with `Mail` icon (if present).
+    - Bio paragraph (`deskripsi`).
+    - `Quotes Andalan` callout card (`Quote` icon + italic quote).
+    - `Minat & Niche` section (`Tag` icon + comma-split `niche` pills).
+    - Social links bar (`Instagram`, `GitHub`, `LinkedIn`, `LINE`) using `openSocialLink` / `getSocialLinkHref` from `socialLinks.ts`.
+
+- [ ] **Step 2: Rebuild `apps/frontend/src/features/members/MyProfilePage.tsx` as the Dedicated Preview Page ("Profilku")**
+  - Fetches the logged-in member's profile (`membersApi.get(user.npm)`) and study programs (`programsApi.list()`).
+  - Renders the friendly, position-agnostic Bahasa Indonesia banner from `docs/index.html`:
+    - Title: *"Ini tampilan kartu profilmu di direktori Zenith!"*
+    - Description: *"Biar makin gampang dikenal teman satu angkatan, kamu bisa lengkapi bio, minat, dan sosmedmu lewat Edit Profilku."*
+    - Action button: `<Button asChild><Link to="/my-profile/edit"><Pencil /> Edit Profilku</Link></Button>`
+  - Renders `<ProfileShowcaseCard member={...} isOwner />`.
+
+- [ ] **Step 3: Deterministic Verification**
+  ```bash
+  pnpm --filter @zenith/frontend run lint
+  ```
+
+---
+
+### Task 7: Create Dedicated Edit Profile Page (`EditProfilePage.tsx`) & Cohort Directory Page (`CohortDirectoryPage.tsx`)
+
+**Files (2):**
+- Create: `apps/frontend/src/features/members/EditProfilePage.tsx`
+- Create: `apps/frontend/src/features/members/CohortDirectoryPage.tsx`
+
+- [ ] **Step 1: Create `apps/frontend/src/features/members/EditProfilePage.tsx` matching `docs/index.html` Page 2**
+  - Header: *"Poles Kartu Profilmu!"* + *"Bikin teman-teman satu angkatan gampang kenal dan ngajak kamu kolaborasi."* + **Lihat Hasil Kartu** button linking to `/my-profile`.
+  - **3 Fun Position-Agnostic Bahasa Indonesia Tips Cards:**
+    1. *1. Fitur Kunci Foto* — *"Mau atur zoom atau geser posisi wajahmu? Tekan tombol Buka Kunci Foto terlebih dahulu, lalu kunci kembali setelah selesai."*
+    2. *2. Tips Niche & Minat* — *"Pisahkan minatmu pakai tanda koma (contoh: Game Dev, UI/UX, CTF). Nanti otomatis tampil jadi badge keren!"*
+    3. *3. Quotes & Sosial Media* — *"Tulis satu kalimat andalanmu di bagian Quotes, dan cukup ketik username sosmedmu saja tanpa perlu salin link panjang."*
+  - **12-Column Responsive Studio:**
+    - Left (5 cols): `ImageUploadEditor` (`endpoint="/upload/avatar"`, `onCommit={handleCommitPhoto}`).
+    - Right (7 cols): Form fields (`Nama Lengkap`, `Nama Panggilan`, `Program Studi` Radix `Select`, `Email Aktif`, `Minat & Niche`, `Cerita Singkat Tentangmu (Bio)`, `Quotes Andalan`, and `SocialLinkField` inputs for Instagram, LINE, GitHub, LinkedIn).
+    - Submit button: **Simpan & Lihat Kartu** (`PUT /api/v1/members/me`, emits `zenith:profile-updated`, shows `toast.success('Profil berhasil diperbarui')`, and navigates to `/my-profile`).
+
+- [ ] **Step 2: Create `apps/frontend/src/features/members/CohortDirectoryPage.tsx` matching `docs/index.html` Page 3**
+  - Uses `useResourceList<Member>({ path: '/members', pageSize: 16, filters: { search, program: programFilter } })`.
+  - Fun Bahasa Indonesia header banner:
+    - Title: *"Kenalan sama teman-teman Zenith 2026 yuk!"*
+    - Description: *"Cari berdasarkan minat seperti \"Game Dev\" atau \"Cyber Security\" buat nemu partner lomba, belajar bareng, atau mabar."*
+    - Search input (`Cari nama atau minat...`) + study program filter pills (`Semua` + loaded programs).
+  - Grid of classmate cards showing avatar thumbnail, nickname, major badge, full name, NPM, and top 3 comma-split niche pills.
+  - Clicking a classmate card opens a `Dialog` displaying their full `<ProfileShowcaseCard />`.
+
+- [ ] **Step 3: Deterministic Verification**
+  ```bash
+  pnpm --filter @zenith/frontend run lint
+  ```
+
+---
+
+### Task 8: Wire New Routes in `router.tsx` & Add Member Pages Unit Tests
+
+**Files (2):**
+- Modify: `apps/frontend/src/app/router.tsx`
+- Create: `apps/frontend/src/features/members/MyProfilePage.test.tsx`
+
+- [ ] **Step 1: Register `/my-profile/edit` and `/directory` inside `ProtectedRoute` in `apps/frontend/src/app/router.tsx`**
+  - Lazy-load `EditProfilePage` (`@/features/members/EditProfilePage`) and `CohortDirectoryPage` (`@/features/members/CohortDirectoryPage`).
+  - Add `<Route path="my-profile/edit" element={<EditProfilePage />} />` and `<Route path="directory" element={<CohortDirectoryPage />} />`.
+
+- [ ] **Step 2: Create `apps/frontend/src/features/members/MyProfilePage.test.tsx`**
+  - Verify `MyProfilePage` renders the member's showcase card, `Foto Terkunci` status badge, comma-split niche pills, `Edit Profilku` link to `/my-profile/edit`, and contains zero dev jargon (`"NPM & Role locked by Auth"`, `"PUT /api/v1/members/me"`) and zero directional instructions (`"Klik tombol di kanan"`).
+  - Verify `EditProfilePage` renders the 3 Bahasa Indonesia tip cards and submits updates via `membersApi.updateMe`.
+
+- [ ] **Step 3: Deterministic Verification**
+  ```bash
+  pnpm --filter @zenith/frontend test -- src/features/members/MyProfilePage.test.tsx
+  ```
+
+---
+
+### Task 9: Simplify Admin `/programs` & `/courses` Pages into Utilitarian Primitive Tables
+
+**Files (2):**
+- Modify: `apps/frontend/src/features/programs/ProgramsPage.tsx`
+- Modify: `apps/frontend/src/features/courses/CoursesPage.tsx`
+
+- [ ] **Step 1: Replace the card grid in `apps/frontend/src/features/programs/ProgramsPage.tsx` with a dense primitive `Table`**
+  - Render `<Table>` (`TableHeader`, `TableBody`, `TableRow`, `TableHead`, `TableCell` from `@/components/ui/table`) with columns: **ID**, **Name**, **Slug**, **Semesters**, **Courses Link**, and right-aligned icon-only **Edit** (`aria-label="Edit <name>"`) and **Delete** (`aria-label="Delete <name>"`) buttons.
+  - Fix the mixed-language typo `"Press n untuk menambah."` to `"Press n to add."`.
+  - Keep `ProgramFormDialog` and `ConfirmDialog` intact.
+
+- [ ] **Step 2: Replace `CourseRowCard` stack in `apps/frontend/src/features/courses/CoursesPage.tsx` with a dense primitive `Table`**
+  - Render `<Table>` matching `docs/index.html` Page 4 with columns: **Code** (`font-mono tabular-nums`), **Course Name**, **Study Program**, **Term** (`font-mono tabular-nums`), **Credits** (`<sks> SKS`, `font-mono tabular-nums`), and right-aligned icon-only **Edit** / **Delete** buttons.
+  - Keep the compact filter bar (`SearchInput`, Program `Select`, Semester `Input`, SKS `Select`), `Paginator`, `CourseFormDialog`, and `ConfirmDialog`.
+
+- [ ] **Step 3: Deterministic Verification**
+  ```bash
+  pnpm --filter @zenith/frontend run lint
+  ```
+
+---
+
+### Task 10: Simplify Admin `/members` Page into Utilitarian Primitive Table & Verify Full Suite
+
+**Files (2):**
+- Modify: `apps/frontend/src/features/members/MembersPage.tsx`
+- Create: `apps/frontend/src/features/members/MembersPage.test.tsx`
+
+- [ ] **Step 1: Replace `MemberCard` grid in `apps/frontend/src/features/members/MembersPage.tsx` with a dense primitive `Table`**
+  - Render `<Table>` with columns: **NPM** (`font-mono tabular-nums`), **Name** (with small `MemberAvatar`), **Nickname**, **Study Program**, **Niche**, and right-aligned icon-only **Edit** (`aria-label="Edit <name>"`) and **Delete** (`aria-label="Delete <name>"`) buttons.
+  - Keep `SearchInput`, Program `Select`, `Paginator`, `MemberFormDialog`, and `ConfirmDialog`.
+
+- [ ] **Step 2: Create `apps/frontend/src/features/members/MembersPage.test.tsx`**
+  - Test that the admin `MembersPage` renders member rows in a `<table>`, supports opening the edit dialog via `Edit <name>`, and passes anti-slop checks (zero em-dashes, accessible labels on all buttons).
+
+- [ ] **Step 3: Full Monorepo Frontend Verification (Test, Lint, Build)**
+  ```bash
+  pnpm --filter @zenith/frontend test && pnpm --filter @zenith/frontend run lint && pnpm --filter @zenith/frontend run build
+  ```
