@@ -107,6 +107,16 @@ function sanitizeUploadSlug(rawId: string | undefined, fallback: string): string
     },
   );
 
+  fastify.post(
+    '/api/v1/upload/request',
+    { preHandler: [blockUnauthorized(), requireWhitelisted()] },
+    async (req, reply) => {
+      const callerNpm = req.user?.npm || 'member';
+
+      return handleImageUpload(req, reply, (ext) => `requests/${callerNpm}-${randomUUID()}.${ext}`);
+    },
+  );
+
   fastify.get('/api/v1/media/*', async (req, reply) => {
     const rawKey = (req.params as { '*': string })['*'] || '';
     const key = rawKey.replace(/^\/+/, '');

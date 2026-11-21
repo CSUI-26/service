@@ -15,6 +15,8 @@ const MembersPage = lazy(() => import('@/features/members/MembersPage'));
 const AchievementsPage = lazy(() => import('@/features/achievements/AchievementsPage'));
 const GalleryPage = lazy(() => import('@/features/gallery/GalleryPage'));
 const ActivitiesPage = lazy(() => import('@/features/activities/ActivitiesPage'));
+const MemberRequestsPage = lazy(() => import('@/features/requests/MemberRequestsPage'));
+const AdminRequestsPage = lazy(() => import('@/features/requests/AdminRequestsPage'));
 const MyProfilePage = lazy(() => import('@/features/members/MyProfilePage'));
 const EditProfilePage = lazy(() => import('@/features/members/EditProfilePage'));
 const CohortDirectoryPage = lazy(() => import('@/features/members/CohortDirectoryPage'));
@@ -42,9 +44,11 @@ export function AppRoutes() {
             <Route path="achievements" element={<AdminRoute><AchievementsPage /></AdminRoute>} />
             <Route path="gallery" element={<AdminRoute><GalleryPage /></AdminRoute>} />
             <Route path="activities" element={<AdminRoute><ActivitiesPage /></AdminRoute>} />
+            <Route path="admin/requests" element={<AdminRoute><AdminRequestsPage /></AdminRoute>} />
             <Route path="my-profile" element={<MyProfilePage />} />
             <Route path="my-profile/edit" element={<EditProfilePage />} />
             <Route path="directory" element={<CohortDirectoryPage />} />
+            <Route path="requests" element={<MemberRequestsPage />} />
             <Route path="*" element={<NotFoundPage />} />
           </Route>
         </Routes>

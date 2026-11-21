@@ -41,7 +41,8 @@ export type UploadEndpoint =
   | '/upload/avatar'
   | '/upload/achievement'
   | '/upload/gallery'
-  | '/upload/activity';
+  | '/upload/activity'
+  | '/upload/request';
 
 export async function uploadMedia(
   endpoint: UploadEndpoint,
