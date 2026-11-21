@@ -262,6 +262,8 @@ services:
     image: containrrr/watchtower:latest
     restart: unless-stopped
     mem_limit: 64m
+    environment:
+      DOCKER_API_VERSION: "1.44"
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
     command:
