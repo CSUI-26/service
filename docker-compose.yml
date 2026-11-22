@@ -120,7 +120,7 @@ services:
       context: .
       dockerfile: apps/backend/Dockerfile
       target: production
-    image: ${BACKEND_IMAGE:-ghcr.io/vickyibr/csui26-backend:latest}
+    image: ${BACKEND_IMAGE:-ghcr.io/csui-26/service-backend:latest}
     restart: unless-stopped
     mem_limit: 256m
     labels:
@@ -181,7 +181,7 @@ services:
       args:
         VITE_BASE_PATH: ${VITE_BASE_PATH:-/studio/}
         VITE_API_BASE_URL: ${VITE_API_BASE_URL:-/api/v1}
-    image: ${FRONTEND_IMAGE:-ghcr.io/vickyibr/csui26-frontend:latest}
+    image: ${FRONTEND_IMAGE:-ghcr.io/csui-26/service-frontend:latest}
     restart: unless-stopped
     mem_limit: 64m
     labels:

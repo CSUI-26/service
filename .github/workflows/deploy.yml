@@ -33,10 +33,10 @@ jobs:
         include:
           - name: backend
             dockerfile: apps/backend/Dockerfile
-            image: ghcr.io/vickyibr/csui26-backend
+            image: ghcr.io/csui-26/service-backend
           - name: frontend
             dockerfile: apps/frontend/Dockerfile
-            image: ghcr.io/vickyibr/csui26-frontend
+            image: ghcr.io/csui-26/service-frontend
 
     steps:
       - name: Checkout repository

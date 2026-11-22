@@ -1,4 +1,4 @@
-# CSUI Zenith (`CSUI26`)
+# CSUI Zenith Service (`CSUI-26/service`)
 
 Monorepo & Docker Compose stack for **CSUI Zenith** — combining the REST API (`@zenith/backend`), admin/self-service dashboard (`@zenith/frontend` at `/studio`), PostgreSQL 17, SeaweedFS S3 object storage, an Nginx reverse-proxy gateway, and zero-secret GHCR auto-deployments via Watchtower.
 
@@ -24,8 +24,8 @@ Vercel Edge (CSUI-26/website - Astro)
 | Service | Purpose | Memory Limit | Exposure |
 | --- | --- | --- | --- |
 | `gateway` | Nginx reverse proxy (`/studio/`, `/api/`, `/storage/`, gzip + 30d S3 cache) | `64m` | `127.0.0.1:${ZENITH_GATEWAY_PORT:-8088}:80` |
-| `backend` | Fastify v5 REST API + Drizzle ORM + SSO-UI auth (`ghcr.io/vickyibr/csui26-backend:latest`) | `256m` | Internal only |
-| `frontend` | React 19 + Vite dashboard built for `/studio/` (`ghcr.io/vickyibr/csui26-frontend:latest`) | `64m` | Internal only |
+| `backend` | Fastify v5 REST API + Drizzle ORM + SSO-UI auth (`ghcr.io/csui-26/service-backend:latest`) | `256m` | Internal only |
+| `frontend` | React 19 + Vite dashboard built for `/studio/` (`ghcr.io/csui-26/service-frontend:latest`) | `64m` | Internal only |
 | `postgres` | PostgreSQL 17.7 (app DB + SeaweedFS filer metadata) | `384m` | Internal only |
 | `seaweedfs` | S3-compatible object storage & Filer UI | `384m` | Internal only |
 | `storage-bootstrap` | One-shot init creating `zenith` (public-read) & `assets` buckets | — | Internal only |
@@ -39,7 +39,7 @@ Vercel Edge (CSUI-26/website - Astro)
 Prerequisites: Docker Engine + Compose v2, Bash, Python 3, OpenSSL, Caddy (reverse proxy to `127.0.0.1:8088`).
 
 ```bash
-git clone https://github.com/VickyIbr/CSUI26.git /opt/CSUI26
+git clone https://github.com/CSUI-26/service.git /opt/CSUI26
 cd /opt/CSUI26
 
 ./scripts/init-secrets.sh
@@ -71,8 +71,8 @@ sudo docker compose up -d --remove-orphans
 ## Zero-Secret CI/CD (`ghcr.io` + Watchtower)
 
 1. Every push to `main` triggers `.github/workflows/deploy.yml`, which uses the built-in `GITHUB_TOKEN` (no manual GitHub Secrets required) to build and push:
-   - `ghcr.io/vickyibr/csui26-backend:latest`
-   - `ghcr.io/vickyibr/csui26-frontend:latest`
+   - `ghcr.io/csui-26/service-backend:latest`
+   - `ghcr.io/csui-26/service-frontend:latest`
 2. On the VPS, `watchtower` polls `ghcr.io` every 120 seconds for containers labeled `com.centurylinklabs.watchtower.enable=true` (`backend` and `frontend` only), pulls updated images, recreates them, and cleans up old images automatically.
 3. **Config / Compose updates:** If you change `docker-compose.yml` or `config/gateway.conf`, run on the VPS:
    ```bash

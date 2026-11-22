@@ -13,7 +13,7 @@ Admin dashboard and curriculum/member REST API for Fakultas Ilmu Komputer UI (CS
 ## Directory Map
 
 ```text
-CSUI26/
+service/
 ├── .github/workflows/        # CI pipeline (build, lint, test)
 ├── package.json              # Root workspace scripts & Turborepo CLI
 ├── pnpm-workspace.yaml       # Workspaces: apps/*, packages/*
