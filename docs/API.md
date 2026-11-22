@@ -1,7 +1,7 @@
 # CSUI Zenith Service REST API Reference
 
 > **Target Audience:** AI coding agents, frontend/website clients, and backend integrators.
-> **Source of Truth:** [`packages/shared/src/index.ts`](file:///home/antigravity/VickyIbr/CSUI26/packages/shared/src/index.ts), [`apps/backend/src/app.ts`](file:///home/antigravity/VickyIbr/CSUI26/apps/backend/src/app.ts), and [`apps/backend/src/routes/`](file:///home/antigravity/VickyIbr/CSUI26/apps/backend/src/routes).
+> **Source of Truth:** [`packages/shared/src/index.ts`](../packages/shared/src/index.ts), [`apps/backend/src/app.ts`](../apps/backend/src/app.ts), and [`apps/backend/src/routes/`](../apps/backend/src/routes).
 
 ---
 
