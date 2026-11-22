@@ -1,18 +1,18 @@
 import { and, asc, desc, eq, ilike, inArray, or, sql, type SQL } from 'drizzle-orm';
 import type {
+  FeedbackCategory,
+  FeedbackMessage,
+  FeedbackMessageCreate,
+  FeedbackMessageUpdate,
+  FeedbackThreadCreate,
+  FeedbackThreadDetail,
+  FeedbackThreadSummary,
+  FeedbackThreadUpdate,
   RequestAuthor,
-  RequestCategory,
-  RequestMessage,
-  RequestMessageCreate,
-  RequestMessageUpdate,
   RequestStatus,
-  RequestThreadCreate,
-  RequestThreadDetail,
-  RequestThreadSummary,
-  RequestThreadUpdate,
 } from '../../schemas/index.js';
 import { db } from '../client.js';
-import { members, requestMessages, requestThreads } from '../schema.js';
+import { feedbackMessages, feedbackThreads, members } from '../schema.js';
 
 async function fetchAuthorsMap(npms: string[]): Promise<Map<string, RequestAuthor>> {
   const unique = Array.from(new Set(npms.filter(Boolean)));
@@ -46,12 +46,12 @@ async function fetchMessageCountsMap(threadIds: number[]): Promise<Map<number, n
 
   const rows = await db
     .select({
-      threadId: requestMessages.threadId,
+      threadId: feedbackMessages.threadId,
       total: sql<number>`count(*)::int`,
     })
-    .from(requestMessages)
-    .where(inArray(requestMessages.threadId, threadIds))
-    .groupBy(requestMessages.threadId);
+    .from(feedbackMessages)
+    .where(inArray(feedbackMessages.threadId, threadIds))
+    .groupBy(feedbackMessages.threadId);
 
   for (const row of rows) {
     map.set(row.threadId, Number(row.total ?? 0));
@@ -59,21 +59,26 @@ async function fetchMessageCountsMap(threadIds: number[]): Promise<Map<number, n
   return map;
 }
 
-function mapThreadSummary(
-  row: typeof requestThreads.$inferSelect,
+function normalizeExternalUrl(value?: string | null): string | null {
+  const trimmed = value?.trim();
+  return trimmed ? trimmed : null;
+}
+
+function mapSummary(
+  row: typeof feedbackThreads.$inferSelect,
   authors: Map<string, RequestAuthor>,
   messageCounts: Map<number, number>,
-): RequestThreadSummary {
+): FeedbackThreadSummary {
   return {
     id: row.id,
     authorNpm: row.authorNpm,
     author: authors.get(row.authorNpm),
-    category: row.category as RequestCategory,
+    category: row.category as FeedbackCategory,
     title: row.title,
     description: row.description,
     status: row.status as RequestStatus,
     image: row.image ?? null,
-    metadata: row.metadata ?? {},
+    externalUrl: row.externalUrl ?? null,
     messageCount: messageCounts.get(row.id) ?? 0,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
@@ -81,9 +86,9 @@ function mapThreadSummary(
 }
 
 function mapMessageRow(
-  row: typeof requestMessages.$inferSelect,
+  row: typeof feedbackMessages.$inferSelect,
   authors: Map<string, RequestAuthor>,
-): RequestMessage {
+): FeedbackMessage {
   return {
     id: row.id,
     threadId: row.threadId,
@@ -97,45 +102,45 @@ function mapMessageRow(
   };
 }
 
-function buildThreadConditions(filters: {
+function buildConditions(filters: {
   authorNpm?: string;
-  category?: RequestCategory;
+  category?: FeedbackCategory;
   status?: RequestStatus;
   search?: string;
 }): SQL[] {
   const conditions: SQL[] = [];
   if (filters.authorNpm !== undefined) {
-    conditions.push(eq(requestThreads.authorNpm, filters.authorNpm));
+    conditions.push(eq(feedbackThreads.authorNpm, filters.authorNpm));
   }
   if (filters.category !== undefined) {
-    conditions.push(eq(requestThreads.category, filters.category));
+    conditions.push(eq(feedbackThreads.category, filters.category));
   }
   if (filters.status !== undefined) {
-    conditions.push(eq(requestThreads.status, filters.status));
+    conditions.push(eq(feedbackThreads.status, filters.status));
   }
   if (filters.search) {
     const q = `%${filters.search}%`;
     const match = or(
-      ilike(requestThreads.title, q),
-      ilike(requestThreads.description, q),
-      ilike(requestThreads.authorNpm, q),
+      ilike(feedbackThreads.title, q),
+      ilike(feedbackThreads.description, q),
+      ilike(feedbackThreads.authorNpm, q),
     );
     if (match) conditions.push(match);
   }
   return conditions;
 }
 
-export async function getRequestThreads(
+export async function getFeedbackThreads(
   options: {
     authorNpm?: string;
-    category?: RequestCategory;
+    category?: FeedbackCategory;
     status?: RequestStatus;
     search?: string;
     page?: number;
     limit?: number;
   } = {},
 ): Promise<{
-  data: RequestThreadSummary[];
+  data: FeedbackThreadSummary[];
   total: number;
   page: number;
   limit: number;
@@ -145,16 +150,16 @@ export async function getRequestThreads(
   const limit = Math.min(100, Math.max(1, options.limit ?? 20));
   const offset = (page - 1) * limit;
 
-  const conditions = buildThreadConditions(options);
-  let countQuery = db.select({ total: sql<number>`count(*)::int` }).from(requestThreads).$dynamic();
+  const conditions = buildConditions(options);
+  let countQuery = db.select({ total: sql<number>`count(*)::int` }).from(feedbackThreads).$dynamic();
   if (conditions.length) countQuery = countQuery.where(and(...conditions));
   const countRows = await countQuery;
   const total = Number(countRows[0]?.total ?? 0);
 
-  let rowsQuery = db.select().from(requestThreads).$dynamic();
+  let rowsQuery = db.select().from(feedbackThreads).$dynamic();
   if (conditions.length) rowsQuery = rowsQuery.where(and(...conditions));
   const rows = await rowsQuery
-    .orderBy(desc(requestThreads.updatedAt), desc(requestThreads.id))
+    .orderBy(desc(feedbackThreads.updatedAt), desc(feedbackThreads.id))
     .limit(limit)
     .offset(offset);
 
@@ -167,7 +172,7 @@ export async function getRequestThreads(
   ]);
 
   return {
-    data: rows.map((row) => mapThreadSummary(row, authors, messageCounts)),
+    data: rows.map((row) => mapSummary(row, authors, messageCounts)),
     total,
     page,
     limit,
@@ -175,52 +180,52 @@ export async function getRequestThreads(
   };
 }
 
-export async function getRequestThreadById(id: number): Promise<RequestThreadDetail | undefined> {
-  const rows = await db.select().from(requestThreads).where(eq(requestThreads.id, id));
-  const threadRow = rows[0];
-  if (!threadRow) return undefined;
+export async function getFeedbackThreadById(id: number): Promise<FeedbackThreadDetail | undefined> {
+  const rows = await db.select().from(feedbackThreads).where(eq(feedbackThreads.id, id));
+  const row = rows[0];
+  if (!row) return undefined;
 
   const msgRows = await db
     .select()
-    .from(requestMessages)
-    .where(eq(requestMessages.threadId, id))
-    .orderBy(asc(requestMessages.createdAt), asc(requestMessages.id));
+    .from(feedbackMessages)
+    .where(eq(feedbackMessages.threadId, id))
+    .orderBy(asc(feedbackMessages.createdAt), asc(feedbackMessages.id));
 
-  const npms = [threadRow.authorNpm, ...msgRows.map((m) => m.authorNpm)];
+  const npms = [row.authorNpm, ...msgRows.map((m) => m.authorNpm)];
   const authors = await fetchAuthorsMap(npms);
   const counts = new Map<number, number>([[id, msgRows.length]]);
 
   return {
-    ...mapThreadSummary(threadRow, authors, counts),
+    ...mapSummary(row, authors, counts),
     messages: msgRows.map((m) => mapMessageRow(m, authors)),
   };
 }
 
-export async function createRequestThread(
+export async function createFeedbackThread(
   authorNpm: string,
-  data: RequestThreadCreate,
-): Promise<RequestThreadDetail> {
+  data: FeedbackThreadCreate,
+): Promise<FeedbackThreadDetail> {
   const [inserted] = await db
-    .insert(requestThreads)
+    .insert(feedbackThreads)
     .values({
       authorNpm,
-      category: data.category ?? 'content',
+      category: data.category ?? 'feedback',
       title: data.title,
       description: data.description,
       status: 'open',
       image: data.image ?? null,
-      metadata: data.metadata ?? {},
+      externalUrl: normalizeExternalUrl(data.externalUrl),
     })
     .returning();
 
-  return (await getRequestThreadById(inserted.id))!;
+  return (await getFeedbackThreadById(inserted.id))!;
 }
 
-export async function updateRequestThread(
+export async function updateFeedbackThread(
   id: number,
-  data: RequestThreadUpdate,
-): Promise<RequestThreadDetail | undefined> {
-  const existing = await db.select().from(requestThreads).where(eq(requestThreads.id, id));
+  data: FeedbackThreadUpdate,
+): Promise<FeedbackThreadDetail | undefined> {
+  const existing = await db.select().from(feedbackThreads).where(eq(feedbackThreads.id, id));
   if (!existing[0]) return undefined;
 
   const set: Record<string, unknown> = {};
@@ -229,41 +234,46 @@ export async function updateRequestThread(
   if (data.description !== undefined) set.description = data.description;
   if (data.status !== undefined) set.status = data.status;
   if (data.image !== undefined) set.image = data.image;
-  if (data.metadata !== undefined) set.metadata = data.metadata;
+  if (data.externalUrl !== undefined) set.externalUrl = normalizeExternalUrl(data.externalUrl);
 
   if (Object.keys(set).length > 0) {
     set.updatedAt = sql`extract(epoch from now())::int`;
-    await db.update(requestThreads).set(set).where(eq(requestThreads.id, id));
+    await db.update(feedbackThreads).set(set).where(eq(feedbackThreads.id, id));
   }
 
-  return getRequestThreadById(id);
+  return getFeedbackThreadById(id);
 }
 
-export async function deleteRequestThread(id: number): Promise<boolean> {
+export async function deleteFeedbackThread(id: number): Promise<boolean> {
   const result = await db
-    .delete(requestThreads)
-    .where(eq(requestThreads.id, id))
-    .returning({ id: requestThreads.id });
+    .delete(feedbackThreads)
+    .where(eq(feedbackThreads.id, id))
+    .returning({ id: feedbackThreads.id });
   return result.length > 0;
 }
 
-export async function getRequestMessageById(messageId: number): Promise<RequestMessage | undefined> {
-  const rows = await db.select().from(requestMessages).where(eq(requestMessages.id, messageId));
+export async function getFeedbackMessageById(
+  messageId: number,
+): Promise<FeedbackMessage | undefined> {
+  const rows = await db
+    .select()
+    .from(feedbackMessages)
+    .where(eq(feedbackMessages.id, messageId));
   const row = rows[0];
   if (!row) return undefined;
   const authors = await fetchAuthorsMap([row.authorNpm]);
   return mapMessageRow(row, authors);
 }
 
-export async function createRequestMessage(
+export async function createFeedbackMessage(
   threadId: number,
   authorNpm: string,
   authorRole: 'user' | 'admin',
-  data: RequestMessageCreate,
-): Promise<RequestMessage> {
+  data: FeedbackMessageCreate,
+): Promise<FeedbackMessage> {
   const inserted = await db.transaction(async (tx) => {
     const [msg] = await tx
-      .insert(requestMessages)
+      .insert(feedbackMessages)
       .values({
         threadId,
         authorNpm,
@@ -274,9 +284,9 @@ export async function createRequestMessage(
       .returning();
 
     await tx
-      .update(requestThreads)
+      .update(feedbackThreads)
       .set({ updatedAt: sql`extract(epoch from now())::int` })
-      .where(eq(requestThreads.id, threadId));
+      .where(eq(feedbackThreads.id, threadId));
 
     return msg;
   });
@@ -285,11 +295,11 @@ export async function createRequestMessage(
   return mapMessageRow(inserted, authors);
 }
 
-export async function updateRequestMessage(
+export async function updateFeedbackMessage(
   threadId: number,
   messageId: number,
-  data: RequestMessageUpdate,
-): Promise<RequestMessage | undefined> {
+  data: FeedbackMessageUpdate,
+): Promise<FeedbackMessage | undefined> {
   const updated = await db.transaction(async (tx) => {
     const set: Record<string, unknown> = {};
     if (data.body !== undefined) set.body = data.body;
@@ -297,17 +307,17 @@ export async function updateRequestMessage(
     set.updatedAt = sql`extract(epoch from now())::int`;
 
     const rows = await tx
-      .update(requestMessages)
+      .update(feedbackMessages)
       .set(set)
-      .where(and(eq(requestMessages.id, messageId), eq(requestMessages.threadId, threadId)))
+      .where(and(eq(feedbackMessages.id, messageId), eq(feedbackMessages.threadId, threadId)))
       .returning();
 
     if (!rows[0]) return undefined;
 
     await tx
-      .update(requestThreads)
+      .update(feedbackThreads)
       .set({ updatedAt: sql`extract(epoch from now())::int` })
-      .where(eq(requestThreads.id, threadId));
+      .where(eq(feedbackThreads.id, threadId));
 
     return rows[0];
   });
@@ -317,22 +327,20 @@ export async function updateRequestMessage(
   return mapMessageRow(updated, authors);
 }
 
-export async function deleteRequestMessage(threadId: number, messageId: number): Promise<boolean> {
-  const deleted = await db.transaction(async (tx) => {
+export async function deleteFeedbackMessage(threadId: number, messageId: number): Promise<boolean> {
+  return db.transaction(async (tx) => {
     const rows = await tx
-      .delete(requestMessages)
-      .where(and(eq(requestMessages.id, messageId), eq(requestMessages.threadId, threadId)))
-      .returning({ id: requestMessages.id });
+      .delete(feedbackMessages)
+      .where(and(eq(feedbackMessages.id, messageId), eq(feedbackMessages.threadId, threadId)))
+      .returning({ id: feedbackMessages.id });
 
     if (rows.length === 0) return false;
 
     await tx
-      .update(requestThreads)
+      .update(feedbackThreads)
       .set({ updatedAt: sql`extract(epoch from now())::int` })
-      .where(eq(requestThreads.id, threadId));
+      .where(eq(feedbackThreads.id, threadId));
 
     return true;
   });
-
-  return deleted;
 }

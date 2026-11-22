@@ -13,10 +13,13 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import type {
-  RequestMessage,
+  ContentRequestDetail,
+  ContentRequestSummary,
+  FeedbackThreadDetail,
+  FeedbackThreadSummary,
+  ImageField,
+  RequestAuthor,
   RequestStatus,
-  RequestThreadDetail,
-  RequestThreadSummary,
 } from '@zenith/shared';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -38,46 +41,140 @@ import { Textarea } from '@/components/ui/textarea';
 import { ConfirmDialog } from '@/components/patterns/ConfirmDialog';
 import { ImageUploadEditor, type ImageUploadValue } from '@/components/patterns/ImageUploadEditor';
 import {
-  ADMIN_CATEGORY_LABELS,
   ADMIN_CONTENT_TYPE_LABELS,
   ADMIN_STATUS_LABELS,
-  MEMBER_CATEGORY_LABELS,
   MEMBER_CONTENT_TYPE_LABELS,
   MEMBER_STATUS_LABELS,
+  contentRequestsApi,
   formatEpochTimestamp,
-  requestsApi,
   statusBadgeVariant,
-} from '@/features/requests/api';
+} from '@/features/content-requests/api';
+import {
+  ADMIN_FEEDBACK_CATEGORY_LABELS,
+  MEMBER_FEEDBACK_CATEGORY_LABELS,
+  feedbackApi,
+} from '@/features/feedback/api';
 
-interface RequestThreadDialogProps {
-  threadId: number | null;
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-  mode: 'member' | 'admin';
-  currentUserNpm: string;
-  isAdmin: boolean;
-  onEditThread: (thread: RequestThreadSummary) => void;
-  onThreadChanged: () => void;
+interface ThreadMessageView {
+  id: number;
+  authorNpm: string;
+  authorRole: 'user' | 'admin';
+  author?: RequestAuthor;
+  body: string;
+  image?: ImageField | null;
+  createdAt: number;
+  updatedAt: number;
 }
 
-export function RequestThreadDialog({
-  threadId,
-  open,
-  onOpenChange,
-  mode,
-  currentUserNpm,
-  isAdmin,
-  onEditThread,
-  onThreadChanged,
-}: RequestThreadDialogProps) {
+interface ThreadDetailView {
+  id: number;
+  authorNpm: string;
+  author?: RequestAuthor;
+  primaryBadge: string;
+  title: string;
+  description: string;
+  status: RequestStatus;
+  image?: ImageField | null;
+  teamName?: string;
+  year?: number;
+  externalUrl?: string | null;
+  messageCount: number;
+  createdAt: number;
+  updatedAt: number;
+  messages: ThreadMessageView[];
+  raw: ContentRequestDetail | FeedbackThreadDetail;
+}
+
+function toView(
+  domain: 'content-request' | 'feedback',
+  item: ContentRequestDetail | FeedbackThreadDetail,
+  isMember: boolean,
+): ThreadDetailView {
+  if (domain === 'content-request') {
+    const req = item as ContentRequestDetail;
+    const typeLabels = isMember ? MEMBER_CONTENT_TYPE_LABELS : ADMIN_CONTENT_TYPE_LABELS;
+    return {
+      id: req.id,
+      authorNpm: req.authorNpm,
+      author: req.author,
+      primaryBadge: typeLabels[req.contentType],
+      title: req.title,
+      description: req.description,
+      status: req.status,
+      image: req.image,
+      teamName: req.metadata?.teamName,
+      year: req.metadata?.year,
+      externalUrl: req.metadata?.externalUrl,
+      messageCount: req.messageCount,
+      createdAt: req.createdAt,
+      updatedAt: req.updatedAt,
+      messages: req.messages,
+      raw: req,
+    };
+  }
+
+  const fb = item as FeedbackThreadDetail;
+  const catLabels = isMember ? MEMBER_FEEDBACK_CATEGORY_LABELS : ADMIN_FEEDBACK_CATEGORY_LABELS;
+  return {
+    id: fb.id,
+    authorNpm: fb.authorNpm,
+    author: fb.author,
+    primaryBadge: catLabels[fb.category],
+    title: fb.title,
+    description: fb.description,
+    status: fb.status,
+    image: fb.image,
+    externalUrl: fb.externalUrl,
+    messageCount: fb.messageCount,
+    createdAt: fb.createdAt,
+    updatedAt: fb.updatedAt,
+    messages: fb.messages,
+    raw: fb,
+  };
+}
+
+export type ThreadConversationDialogProps =
+  | {
+      domain: 'content-request';
+      threadId: number | null;
+      open: boolean;
+      onOpenChange: (open: boolean) => void;
+      mode: 'member' | 'admin';
+      currentUserNpm: string;
+      isAdmin: boolean;
+      onEditThread: (item: ContentRequestSummary) => void;
+      onThreadChanged: () => void;
+    }
+  | {
+      domain: 'feedback';
+      threadId: number | null;
+      open: boolean;
+      onOpenChange: (open: boolean) => void;
+      mode: 'member' | 'admin';
+      currentUserNpm: string;
+      isAdmin: boolean;
+      onEditThread: (item: FeedbackThreadSummary) => void;
+      onThreadChanged: () => void;
+    };
+
+function ThreadConversationDialogInner(props: ThreadConversationDialogProps) {
+  const {
+    domain,
+    threadId,
+    open,
+    onOpenChange,
+    mode,
+    currentUserNpm,
+    isAdmin,
+    onThreadChanged,
+  } = props;
+
   const isMember = mode === 'member';
-  const categoryLabels = isMember ? MEMBER_CATEGORY_LABELS : ADMIN_CATEGORY_LABELS;
-  const contentTypeLabels = isMember ? MEMBER_CONTENT_TYPE_LABELS : ADMIN_CONTENT_TYPE_LABELS;
   const statusLabels = isMember ? MEMBER_STATUS_LABELS : ADMIN_STATUS_LABELS;
   const locale = isMember ? 'id-ID' : 'en-US';
 
-  const [thread, setThread] = useState<RequestThreadDetail | null>(null);
-  const [loading, setLoading] = useState(false);
+  const [thread, setThread] = useState<ThreadDetailView | null>(null);
+  const [loading, setLoading] = useState(Boolean(open && threadId !== null));
   const [error, setError] = useState<string | null>(null);
 
   const [replyBody, setReplyBody] = useState('');
@@ -89,28 +186,22 @@ export function RequestThreadDialog({
   const [editingMsgBody, setEditingMsgBody] = useState('');
   const [savingMsg, setSavingMsg] = useState(false);
 
-  const [deletingMsg, setDeletingMsg] = useState<RequestMessage | null>(null);
+  const [deletingMsg, setDeletingMsg] = useState<ThreadMessageView | null>(null);
   const [deletingThreadConfirm, setDeletingThreadConfirm] = useState(false);
   const [updatingThread, setUpdatingThread] = useState(false);
 
   useEffect(() => {
-    if (!open || threadId === null) {
-      if (!open) setThread(null);
-      return;
-    }
-
+    if (!open || threadId === null) return;
     let active = true;
-    setReplyBody('');
-    setReplyImage({ url: '' });
-    setShowReplyImage(false);
-    setEditingMsgId(null);
-    setLoading(true);
-    setError(null);
 
-    requestsApi
-      .get(threadId)
-      .then((res) => {
-        if (active) setThread(res.data);
+    const request =
+      domain === 'content-request'
+        ? contentRequestsApi.get(threadId).then((res) => toView('content-request', res.data, isMember))
+        : feedbackApi.get(threadId).then((res) => toView('feedback', res.data, isMember));
+
+    request
+      .then((view) => {
+        if (active) setThread(view);
       })
       .catch((err) => {
         if (active) {
@@ -130,14 +221,25 @@ export function RequestThreadDialog({
     return () => {
       active = false;
     };
-  }, [open, threadId, isMember]);
+  }, [open, threadId, domain, isMember]);
 
   const handleStatusChange = async (nextStatus: RequestStatus) => {
     if (!thread) return;
     setUpdatingThread(true);
     try {
-      const res = await requestsApi.update(thread.id, { status: nextStatus });
-      setThread(res.data);
+      const updated =
+        domain === 'content-request'
+          ? toView(
+              'content-request',
+              (await contentRequestsApi.update(thread.id, { status: nextStatus })).data,
+              isMember,
+            )
+          : toView(
+              'feedback',
+              (await feedbackApi.update(thread.id, { status: nextStatus })).data,
+              isMember,
+            );
+      setThread(updated);
       onThreadChanged();
       toast.success(isMember ? 'Status thread diperbarui' : 'Thread status updated');
     } catch (err) {
@@ -151,11 +253,15 @@ export function RequestThreadDialog({
     if (!thread) return;
     setUpdatingThread(true);
     try {
-      await requestsApi.remove(thread.id);
+      if (domain === 'content-request') {
+        await contentRequestsApi.remove(thread.id);
+      } else {
+        await feedbackApi.remove(thread.id);
+      }
       setDeletingThreadConfirm(false);
       onOpenChange(false);
       onThreadChanged();
-      toast.success(isMember ? 'Request dihapus' : 'Thread deleted');
+      toast.success(isMember ? 'Thread dihapus' : 'Thread deleted');
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Failed to delete thread');
     } finally {
@@ -168,16 +274,21 @@ export function RequestThreadDialog({
     if (!thread || !replyBody.trim()) return;
     setSendingReply(true);
     try {
-      const res = await requestsApi.createMessage(thread.id, {
+      const payload = {
         body: replyBody.trim(),
         image: replyImage.url.trim() ? replyImage : null,
-      });
+      };
+      const createdMsg: ThreadMessageView =
+        domain === 'content-request'
+          ? (await contentRequestsApi.createMessage(thread.id, payload)).data
+          : (await feedbackApi.createMessage(thread.id, payload)).data;
+
       setThread((prev) =>
         prev
           ? {
               ...prev,
               messageCount: prev.messageCount + 1,
-              messages: [...prev.messages, res.data],
+              messages: [...prev.messages, createdMsg],
             }
           : prev,
       );
@@ -185,6 +296,7 @@ export function RequestThreadDialog({
       setReplyImage({ url: '' });
       setShowReplyImage(false);
       onThreadChanged();
+      toast.success(isMember ? 'Balasan terkirim' : 'Reply sent');
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Failed to send reply');
     } finally {
@@ -196,19 +308,22 @@ export function RequestThreadDialog({
     if (!thread || !editingMsgBody.trim()) return;
     setSavingMsg(true);
     try {
-      const res = await requestsApi.updateMessage(thread.id, messageId, {
-        body: editingMsgBody.trim(),
-      });
+      const payload = { body: editingMsgBody.trim() };
+      const updatedMsg: ThreadMessageView =
+        domain === 'content-request'
+          ? (await contentRequestsApi.updateMessage(thread.id, messageId, payload)).data
+          : (await feedbackApi.updateMessage(thread.id, messageId, payload)).data;
+
       setThread((prev) =>
         prev
           ? {
               ...prev,
-              messages: prev.messages.map((m) => (m.id === messageId ? res.data : m)),
+              messages: prev.messages.map((m) => (m.id === messageId ? updatedMsg : m)),
             }
           : prev,
       );
       setEditingMsgId(null);
-      setEditingMsgBody('');
+      onThreadChanged();
       toast.success(isMember ? 'Pesan diperbarui' : 'Message updated');
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Failed to update message');
@@ -222,7 +337,11 @@ export function RequestThreadDialog({
     const targetId = deletingMsg.id;
     setSavingMsg(true);
     try {
-      await requestsApi.removeMessage(thread.id, targetId);
+      if (domain === 'content-request') {
+        await contentRequestsApi.removeMessage(thread.id, targetId);
+      } else {
+        await feedbackApi.removeMessage(thread.id, targetId);
+      }
       setThread((prev) =>
         prev
           ? {
@@ -239,6 +358,15 @@ export function RequestThreadDialog({
       toast.error(err instanceof Error ? err.message : 'Failed to delete message');
     } finally {
       setSavingMsg(false);
+    }
+  };
+
+  const triggerEditThread = () => {
+    if (!thread) return;
+    if (props.domain === 'content-request') {
+      props.onEditThread(thread.raw as ContentRequestDetail);
+    } else {
+      props.onEditThread(thread.raw as FeedbackThreadDetail);
     }
   };
 
@@ -259,12 +387,7 @@ export function RequestThreadDialog({
                   <Badge variant="outline" className="font-mono tabular-nums">
                     #{thread.id}
                   </Badge>
-                  <Badge variant="secondary">{categoryLabels[thread.category]}</Badge>
-                  {thread.category === 'content' && thread.metadata?.contentType ? (
-                    <Badge variant="outline">
-                      {contentTypeLabels[thread.metadata.contentType]}
-                    </Badge>
-                  ) : null}
+                  <Badge variant="secondary">{thread.primaryBadge}</Badge>
                   <Badge variant={statusBadgeVariant(thread.status)}>
                     {statusLabels[thread.status]}
                   </Badge>
@@ -287,7 +410,7 @@ export function RequestThreadDialog({
                 <span>
                   {isMember
                     ? 'Thread privat antara kamu dan admin Zenith.'
-                    : 'Private member request thread.'}
+                    : 'Private member thread.'}
                 </span>
               )}
             </DialogDescription>
@@ -310,27 +433,25 @@ export function RequestThreadDialog({
                     {thread.description}
                   </p>
 
-                  {thread.metadata?.teamName ||
-                  thread.metadata?.year ||
-                  thread.metadata?.externalUrl ? (
+                  {thread.teamName || thread.year || thread.externalUrl ? (
                     <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 border-t border-border/60 pt-2.5 text-xs text-muted-foreground">
-                      {thread.metadata.teamName ? (
+                      {thread.teamName ? (
                         <span>
                           {isMember ? 'Tim: ' : 'Team: '}
-                          <strong className="text-foreground">{thread.metadata.teamName}</strong>
+                          <strong className="text-foreground">{thread.teamName}</strong>
                         </span>
                       ) : null}
-                      {thread.metadata.year ? (
+                      {thread.year ? (
                         <span>
                           {isMember ? 'Tahun: ' : 'Year: '}
                           <span className="font-mono tabular-nums text-foreground">
-                            {thread.metadata.year}
+                            {thread.year}
                           </span>
                         </span>
                       ) : null}
-                      {thread.metadata.externalUrl ? (
+                      {thread.externalUrl ? (
                         <a
-                          href={thread.metadata.externalUrl}
+                          href={thread.externalUrl}
                           target="_blank"
                           rel="noreferrer"
                           className="inline-flex items-center gap-1 font-medium text-primary hover:underline"
@@ -360,11 +481,11 @@ export function RequestThreadDialog({
                             type="button"
                             variant="outline"
                             size="sm"
-                            onClick={() => onEditThread(thread)}
+                            onClick={triggerEditThread}
                             disabled={updatingThread}
                           >
                             <Pencil className="size-3.5" aria-hidden="true" />
-                            <span>{isMember ? 'Ubah Request' : 'Edit'}</span>
+                            <span>{isMember ? 'Ubah Thread' : 'Edit'}</span>
                           </Button>
                           <Button
                             type="button"
@@ -401,10 +522,7 @@ export function RequestThreadDialog({
                           onValueChange={(value) => handleStatusChange(value as RequestStatus)}
                           disabled={updatingThread}
                         >
-                          <SelectTrigger
-                            className="h-8 w-36"
-                            aria-label="Thread status"
-                          >
+                          <SelectTrigger className="h-8 w-36" aria-label="Thread status">
                             <SelectValue>{statusLabels[thread.status]}</SelectValue>
                           </SelectTrigger>
                           <SelectContent>
@@ -429,7 +547,7 @@ export function RequestThreadDialog({
                   {thread.messages.length === 0 ? (
                     <p className="rounded-lg border border-dashed border-border p-4 text-center text-xs text-muted-foreground">
                       {isMember
-                        ? 'Belum ada balasan. Tulis pesan tambahan di bawah jika perlu.'
+                        ? 'Belum ada balasan. Tulis pesan tambahan pada kolom balasan jika perlu.'
                         : 'No replies yet.'}
                     </p>
                   ) : (
@@ -589,9 +707,7 @@ export function RequestThreadDialog({
                   <Textarea
                     rows={2}
                     placeholder={
-                      isMember
-                        ? 'Tulis balasan untuk admin...'
-                        : 'Write a reply to the member...'
+                      isMember ? 'Tulis balasan untuk admin...' : 'Write a reply to the member...'
                     }
                     value={replyBody}
                     onChange={(e) => setReplyBody(e.target.value)}
@@ -626,7 +742,7 @@ export function RequestThreadDialog({
               ) : (
                 <p className="rounded-lg border border-border bg-muted/40 p-3 text-center text-xs text-muted-foreground">
                   {isMember
-                    ? 'Thread ini sudah selesai atau ditutup. Kamu tetap bisa mengubah atau menghapus pesanmu di atas.'
+                    ? 'Thread ini sudah selesai atau ditutup. Kamu tetap bisa mengubah atau menghapus pesanmu.'
                     : 'Thread is closed.'}
                 </p>
               )}
@@ -638,7 +754,7 @@ export function RequestThreadDialog({
       <ConfirmDialog
         open={deletingThreadConfirm}
         onOpenChange={setDeletingThreadConfirm}
-        title={isMember ? 'Hapus Request Ini?' : 'Delete request thread?'}
+        title={isMember ? 'Hapus Thread Ini?' : 'Delete thread?'}
         description={
           isMember
             ? 'Semua pesan dan lampiran di thread ini akan dihapus permanen.'
@@ -666,4 +782,9 @@ export function RequestThreadDialog({
       />
     </>
   );
+}
+
+export function ThreadConversationDialog(props: ThreadConversationDialogProps) {
+  const dialogKey = `${props.open ? 'open' : 'closed'}-${props.domain}-${props.threadId ?? 'none'}`;
+  return <ThreadConversationDialogInner key={dialogKey} {...props} />;
 }

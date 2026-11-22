@@ -73,6 +73,25 @@ export const CourseUpdateSchema = CourseSchema.partial().extend({
 // Member schemas
 export const MemberFotoSchema = ImageFieldSchema;
 
+export function isValidIsoDate(value: string): boolean {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+  const [year, month, day] = value.split('-').map(Number);
+  const parsed = new Date(Date.UTC(year, month - 1, day));
+  if (
+    parsed.getUTCFullYear() !== year ||
+    parsed.getUTCMonth() !== month - 1 ||
+    parsed.getUTCDate() !== day
+  ) {
+    return false;
+  }
+  const todayIso = new Date().toISOString().slice(0, 10);
+  return value <= todayIso;
+}
+
+export const DateOfBirthSchema = z
+  .string()
+  .refine(isValidIsoDate, 'Date of birth must be a valid YYYY-MM-DD date not in the future');
+
 export const MemberSchema = z.object({
   npm: z.string().regex(/^\d{10}$/, 'NPM must be 10 digits'),
   email: z.string().email(),
@@ -80,6 +99,7 @@ export const MemberSchema = z.object({
   nama_panggilan: z.string().min(1),
   major: z.string().optional(),
   programId: z.string().min(1).optional(),
+  dateOfBirth: DateOfBirthSchema.nullable().optional(),
   instagram: z.string(),
   line: z.string(),
   github: z.string(),
@@ -268,17 +288,8 @@ export const ActivityUpdateSchema = z
   })
   .partial();
 
-// Request Thread & Message schemas
-export const RequestCategorySchema = z.enum(['content', 'feedback', 'help', 'other']);
-export const RequestContentTypeSchema = z.enum(['achievement', 'gallery', 'activity', 'other']);
+// Shared thread status, author & message input schemas
 export const RequestStatusSchema = z.enum(['open', 'in_progress', 'resolved', 'closed']);
-
-export const RequestMetadataSchema = z.object({
-  contentType: RequestContentTypeSchema.optional(),
-  externalUrl: z.string().url().optional().or(z.literal('')),
-  year: z.number().int().min(1990).max(2100).optional(),
-  teamName: z.string().optional(),
-});
 
 export const RequestAuthorSchema = z.object({
   npm: z.string(),
@@ -287,7 +298,89 @@ export const RequestAuthorSchema = z.object({
   foto: ImageFieldSchema.optional(),
 });
 
-export const RequestMessageSchema = z.object({
+const ThreadMessageCreateSchema = z.object({
+  body: z.string().trim().min(1, 'Message body required').max(4000),
+  image: ImageFieldSchema.nullable().optional(),
+});
+
+const ThreadMessageUpdateSchema = z
+  .object({
+    body: z.string().trim().min(1, 'Message body required').max(4000),
+    image: ImageFieldSchema.nullable(),
+  })
+  .partial()
+  .refine((data) => data.body !== undefined || data.image !== undefined, {
+    message: 'At least one field (body or image) must be provided',
+  });
+
+// Content Request schemas
+export const ContentRequestTypeSchema = z.enum(['achievement', 'gallery', 'activity', 'other']);
+
+export const ContentRequestMetadataSchema = z.object({
+  externalUrl: z.string().url().optional().or(z.literal('')),
+  year: z.number().int().min(1990).max(2100).optional(),
+  teamName: z.string().optional(),
+});
+
+export const ContentRequestMessageSchema = z.object({
+  id: z.number().int().positive(),
+  requestId: z.number().int().positive(),
+  authorNpm: z.string(),
+  authorRole: z.enum(['user', 'admin']),
+  author: RequestAuthorSchema.optional(),
+  body: z.string().min(1, 'Message body required'),
+  image: ImageFieldSchema.nullable().optional(),
+  createdAt: z.number().int(),
+  updatedAt: z.number().int(),
+});
+
+export const ContentRequestMessageCreateSchema = ThreadMessageCreateSchema;
+export const ContentRequestMessageUpdateSchema = ThreadMessageUpdateSchema;
+
+export const ContentRequestSummarySchema = z.object({
+  id: z.number().int().positive(),
+  authorNpm: z.string(),
+  author: RequestAuthorSchema.optional(),
+  contentType: ContentRequestTypeSchema,
+  title: z.string().min(1, 'Title required'),
+  description: z.string().min(1, 'Description required'),
+  status: RequestStatusSchema,
+  image: ImageFieldSchema.nullable().optional(),
+  metadata: ContentRequestMetadataSchema,
+  messageCount: z.number().int().min(0),
+  createdAt: z.number().int(),
+  updatedAt: z.number().int(),
+});
+
+export const ContentRequestDetailSchema = ContentRequestSummarySchema.extend({
+  messages: z.array(ContentRequestMessageSchema),
+});
+
+export const ContentRequestCreateSchema = z.object({
+  contentType: ContentRequestTypeSchema.default('achievement'),
+  title: z.string().trim().min(1, 'Title required').max(200),
+  description: z.string().trim().min(1, 'Description required').max(5000),
+  image: ImageFieldSchema.nullable().optional(),
+  metadata: ContentRequestMetadataSchema.optional().default({}),
+});
+
+export const ContentRequestUpdateSchema = z
+  .object({
+    contentType: ContentRequestTypeSchema,
+    title: z.string().trim().min(1, 'Title required').max(200),
+    description: z.string().trim().min(1, 'Description required').max(5000),
+    status: RequestStatusSchema,
+    image: ImageFieldSchema.nullable(),
+    metadata: ContentRequestMetadataSchema,
+  })
+  .partial();
+
+// Feedback & Help Thread schemas
+export const FeedbackCategorySchema = z.enum(['feedback', 'help', 'other']);
+
+const optionalFeedbackUrl = z.string().url().or(z.literal('')).nullable().optional();
+
+export const FeedbackMessageSchema = z.object({
   id: z.number().int().positive(),
   threadId: z.number().int().positive(),
   authorNpm: z.string(),
@@ -299,58 +392,58 @@ export const RequestMessageSchema = z.object({
   updatedAt: z.number().int(),
 });
 
-export const RequestMessageCreateSchema = z.object({
-  body: z.string().trim().min(1, 'Message body required').max(4000),
-  image: ImageFieldSchema.nullable().optional(),
-});
+export const FeedbackMessageCreateSchema = ThreadMessageCreateSchema;
+export const FeedbackMessageUpdateSchema = ThreadMessageUpdateSchema;
 
-export const RequestMessageUpdateSchema = z
-  .object({
-    body: z.string().trim().min(1, 'Message body required').max(4000),
-    image: ImageFieldSchema.nullable(),
-  })
-  .partial()
-  .refine((data) => data.body !== undefined || data.image !== undefined, {
-    message: 'At least one field (body or image) must be provided',
-  });
-
-export const RequestThreadSummarySchema = z.object({
+export const FeedbackThreadSummarySchema = z.object({
   id: z.number().int().positive(),
   authorNpm: z.string(),
   author: RequestAuthorSchema.optional(),
-  category: RequestCategorySchema,
+  category: FeedbackCategorySchema,
   title: z.string().min(1, 'Title required'),
   description: z.string().min(1, 'Description required'),
   status: RequestStatusSchema,
   image: ImageFieldSchema.nullable().optional(),
-  metadata: RequestMetadataSchema,
+  externalUrl: optionalFeedbackUrl,
   messageCount: z.number().int().min(0),
   createdAt: z.number().int(),
   updatedAt: z.number().int(),
 });
 
-export const RequestThreadDetailSchema = RequestThreadSummarySchema.extend({
-  messages: z.array(RequestMessageSchema),
+export const FeedbackThreadDetailSchema = FeedbackThreadSummarySchema.extend({
+  messages: z.array(FeedbackMessageSchema),
 });
 
-export const RequestThreadCreateSchema = z.object({
-  category: RequestCategorySchema.default('content'),
+export const FeedbackThreadCreateSchema = z.object({
+  category: FeedbackCategorySchema.default('feedback'),
   title: z.string().trim().min(1, 'Title required').max(200),
   description: z.string().trim().min(1, 'Description required').max(5000),
   image: ImageFieldSchema.nullable().optional(),
-  metadata: RequestMetadataSchema.optional().default({}),
+  externalUrl: optionalFeedbackUrl,
 });
 
-export const RequestThreadUpdateSchema = z
+export const FeedbackThreadUpdateSchema = z
   .object({
-    category: RequestCategorySchema,
+    category: FeedbackCategorySchema,
     title: z.string().trim().min(1, 'Title required').max(200),
     description: z.string().trim().min(1, 'Description required').max(5000),
     status: RequestStatusSchema,
     image: ImageFieldSchema.nullable(),
-    metadata: RequestMetadataSchema,
+    externalUrl: optionalFeedbackUrl,
   })
   .partial();
+
+// Admin Hub summary stats schema
+export const AdminStatsSchema = z.object({
+  programs: z.number().int().min(0),
+  courses: z.number().int().min(0),
+  members: z.number().int().min(0),
+  achievements: z.number().int().min(0),
+  galleryItems: z.number().int().min(0),
+  activities: z.number().int().min(0),
+  openContentRequests: z.number().int().min(0),
+  openFeedbackThreads: z.number().int().min(0),
+});
 
 // Types
 export type ImageConfig = z.infer<typeof ImageConfigSchema>;
@@ -380,15 +473,23 @@ export type PublicGalleryResponse = z.infer<typeof PublicGalleryResponseSchema>;
 export type Activity = z.infer<typeof ActivitySchema>;
 export type ActivityCreate = z.infer<typeof ActivityCreateSchema>;
 export type ActivityUpdate = z.infer<typeof ActivityUpdateSchema>;
-export type RequestCategory = z.infer<typeof RequestCategorySchema>;
-export type RequestContentType = z.infer<typeof RequestContentTypeSchema>;
 export type RequestStatus = z.infer<typeof RequestStatusSchema>;
-export type RequestMetadata = z.infer<typeof RequestMetadataSchema>;
 export type RequestAuthor = z.infer<typeof RequestAuthorSchema>;
-export type RequestMessage = z.infer<typeof RequestMessageSchema>;
-export type RequestMessageCreate = z.infer<typeof RequestMessageCreateSchema>;
-export type RequestMessageUpdate = z.infer<typeof RequestMessageUpdateSchema>;
-export type RequestThreadSummary = z.infer<typeof RequestThreadSummarySchema>;
-export type RequestThreadDetail = z.infer<typeof RequestThreadDetailSchema>;
-export type RequestThreadCreate = z.infer<typeof RequestThreadCreateSchema>;
-export type RequestThreadUpdate = z.infer<typeof RequestThreadUpdateSchema>;
+export type ContentRequestType = z.infer<typeof ContentRequestTypeSchema>;
+export type ContentRequestMetadata = z.infer<typeof ContentRequestMetadataSchema>;
+export type ContentRequestMessage = z.infer<typeof ContentRequestMessageSchema>;
+export type ContentRequestMessageCreate = z.infer<typeof ContentRequestMessageCreateSchema>;
+export type ContentRequestMessageUpdate = z.infer<typeof ContentRequestMessageUpdateSchema>;
+export type ContentRequestSummary = z.infer<typeof ContentRequestSummarySchema>;
+export type ContentRequestDetail = z.infer<typeof ContentRequestDetailSchema>;
+export type ContentRequestCreate = z.infer<typeof ContentRequestCreateSchema>;
+export type ContentRequestUpdate = z.infer<typeof ContentRequestUpdateSchema>;
+export type FeedbackCategory = z.infer<typeof FeedbackCategorySchema>;
+export type FeedbackMessage = z.infer<typeof FeedbackMessageSchema>;
+export type FeedbackMessageCreate = z.infer<typeof FeedbackMessageCreateSchema>;
+export type FeedbackMessageUpdate = z.infer<typeof FeedbackMessageUpdateSchema>;
+export type FeedbackThreadSummary = z.infer<typeof FeedbackThreadSummarySchema>;
+export type FeedbackThreadDetail = z.infer<typeof FeedbackThreadDetailSchema>;
+export type FeedbackThreadCreate = z.infer<typeof FeedbackThreadCreateSchema>;
+export type FeedbackThreadUpdate = z.infer<typeof FeedbackThreadUpdateSchema>;
+export type AdminStats = z.infer<typeof AdminStatsSchema>;

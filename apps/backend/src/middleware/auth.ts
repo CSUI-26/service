@@ -104,10 +104,16 @@ export function optionalAuth() {
 export function serializeMemberForViewer(
   member: Member,
   user?: AuthUser,
-): Omit<Member, 'email' | 'role'> | Member {
-  if (user?.isWhitelisted) return member;
-  const { email: _email, role: _role, ...publicMember } = member;
-  return publicMember;
+): Omit<Member, 'email' | 'role' | 'dateOfBirth'> | Omit<Member, 'dateOfBirth'> | Member {
+  if (!user?.isWhitelisted) {
+    const { email: _email, role: _role, dateOfBirth: _dob, ...publicMember } = member;
+    return publicMember;
+  }
+  if (!user.isAdmin && user.npm !== member.npm) {
+    const { dateOfBirth: _dob, ...peerMember } = member;
+    return peerMember;
+  }
+  return member;
 }
 
 export function adminOnly() {

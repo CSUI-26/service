@@ -24,6 +24,7 @@ const emptyValues: MemberFormValues = {
   name: '',
   nama_panggilan: '',
   programId: '',
+  dateOfBirth: '',
   niche: '',
   deskripsi: '',
   quotes: '',
@@ -43,6 +44,7 @@ function toFormValues(member: Member | null): MemberFormValues {
     name: member.name,
     nama_panggilan: member.nama_panggilan,
     programId: member.programId,
+    dateOfBirth: member.dateOfBirth ?? '',
     niche: member.niche,
     deskripsi: member.deskripsi,
     quotes: member.quotes,
@@ -205,6 +207,14 @@ export function MemberFormDialog({
               label="Nickname"
               error={errors.nama_panggilan?.message}
               {...register('nama_panggilan')}
+            />
+            <TextField
+              id="member-dob"
+              label="Date of birth"
+              type="date"
+              hint="Optional."
+              error={errors.dateOfBirth?.message}
+              {...register('dateOfBirth')}
             />
           </div>
         </div>

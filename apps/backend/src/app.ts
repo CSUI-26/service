@@ -13,7 +13,9 @@ import { memberRoutes } from './routes/members.js';
 import { achievementRoutes } from './routes/achievements.js';
 import { galleryRoutes } from './routes/gallery.js';
 import { activityRoutes } from './routes/activities.js';
-import { requestRoutes } from './routes/requests.js';
+import { contentRequestRoutes } from './routes/contentRequests.js';
+import { feedbackRoutes } from './routes/feedback.js';
+import { adminStatsRoutes } from './routes/adminStats.js';
 import { uploadRoutes } from './routes/upload.js';
 
 export function createApp() {
@@ -69,7 +71,9 @@ export function createApp() {
   fastify.register(achievementRoutes);
   fastify.register(galleryRoutes);
   fastify.register(activityRoutes);
-  fastify.register(requestRoutes);
+  fastify.register(contentRequestRoutes);
+  fastify.register(feedbackRoutes);
+  fastify.register(adminStatsRoutes);
   fastify.register(uploadRoutes);
   fastify.register(authRoutes);
 

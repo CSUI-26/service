@@ -9,17 +9,18 @@ import { AdminRoute } from '@/features/auth/AdminRoute';
 import AccessDeniedPage from '@/features/auth/AccessDeniedPage';
 const LoginPage = lazy(() => import('@/features/auth/LoginPage'));
 const AuthCallbackPage = lazy(() => import('@/features/auth/AuthCallbackPage'));
+const AdminHubPage = lazy(() => import('@/features/admin/AdminHubPage'));
 const ProgramsPage = lazy(() => import('@/features/programs/ProgramsPage'));
 const CoursesPage = lazy(() => import('@/features/courses/CoursesPage'));
 const MembersPage = lazy(() => import('@/features/members/MembersPage'));
 const AchievementsPage = lazy(() => import('@/features/achievements/AchievementsPage'));
 const GalleryPage = lazy(() => import('@/features/gallery/GalleryPage'));
 const ActivitiesPage = lazy(() => import('@/features/activities/ActivitiesPage'));
-const MemberRequestsPage = lazy(() => import('@/features/requests/MemberRequestsPage'));
 const AdminRequestsPage = lazy(() => import('@/features/requests/AdminRequestsPage'));
+const ContentRequestsPage = lazy(() => import('@/features/content-requests/ContentRequestsPage'));
+const FeedbackPage = lazy(() => import('@/features/feedback/FeedbackPage'));
 const MyProfilePage = lazy(() => import('@/features/members/MyProfilePage'));
 const EditProfilePage = lazy(() => import('@/features/members/EditProfilePage'));
-const CohortDirectoryPage = lazy(() => import('@/features/members/CohortDirectoryPage'));
 const NotFoundPage = lazy(() => import('@/app/NotFoundPage'));
 
 export function AppRoutes() {
@@ -38,6 +39,7 @@ export function AppRoutes() {
             }
           >
             <Route index element={<Navigate to="/my-profile" replace />} />
+            <Route path="admin" element={<AdminRoute><AdminHubPage /></AdminRoute>} />
             <Route path="programs" element={<AdminRoute><ProgramsPage /></AdminRoute>} />
             <Route path="courses" element={<AdminRoute><CoursesPage /></AdminRoute>} />
             <Route path="members" element={<AdminRoute><MembersPage /></AdminRoute>} />
@@ -47,8 +49,10 @@ export function AppRoutes() {
             <Route path="admin/requests" element={<AdminRoute><AdminRequestsPage /></AdminRoute>} />
             <Route path="my-profile" element={<MyProfilePage />} />
             <Route path="my-profile/edit" element={<EditProfilePage />} />
-            <Route path="directory" element={<CohortDirectoryPage />} />
-            <Route path="requests" element={<MemberRequestsPage />} />
+            <Route path="content-requests" element={<ContentRequestsPage />} />
+            <Route path="feedback" element={<FeedbackPage />} />
+            <Route path="directory" element={<Navigate to="/my-profile" replace />} />
+            <Route path="requests" element={<Navigate to="/content-requests" replace />} />
             <Route path="*" element={<NotFoundPage />} />
           </Route>
         </Routes>

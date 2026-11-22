@@ -2,12 +2,12 @@ import type { FastifyInstance } from 'fastify';
 import { blockUnauthorized, requireWhitelisted } from '../middleware/auth.js';
 import * as repo from '../db/repository.js';
 import {
-  RequestCategorySchema,
-  RequestMessageCreateSchema,
-  RequestMessageUpdateSchema,
+  FeedbackCategorySchema,
+  FeedbackMessageCreateSchema,
+  FeedbackMessageUpdateSchema,
+  FeedbackThreadCreateSchema,
+  FeedbackThreadUpdateSchema,
   RequestStatusSchema,
-  RequestThreadCreateSchema,
-  RequestThreadUpdateSchema,
 } from '../schemas/index.js';
 import { parsePaging } from './courses.js';
 
@@ -17,10 +17,10 @@ function parsePositiveId(raw: string): number | null {
   return num;
 }
 
-export async function requestRoutes(fastify: FastifyInstance) {
+export async function feedbackRoutes(fastify: FastifyInstance) {
   const preHandler = [blockUnauthorized(), requireWhitelisted()];
 
-  fastify.get('/api/v1/requests', { preHandler }, async (req, reply) => {
+  fastify.get('/api/v1/feedback', { preHandler }, async (req, reply) => {
     reply.header('Cache-Control', 'private, no-store');
     const query = req.query as {
       category?: string;
@@ -34,7 +34,7 @@ export async function requestRoutes(fastify: FastifyInstance) {
     const { page, limit } = parsePaging(query);
     const parsedCategory =
       query.category && query.category !== ''
-        ? RequestCategorySchema.safeParse(query.category)
+        ? FeedbackCategorySchema.safeParse(query.category)
         : null;
     const parsedStatus =
       query.status && query.status !== ''
@@ -43,7 +43,7 @@ export async function requestRoutes(fastify: FastifyInstance) {
 
     const forceMine = !req.user?.isAdmin || query.scope === 'mine';
 
-    return repo.getRequestThreads({
+    return repo.getFeedbackThreads({
       authorNpm: forceMine ? req.user!.npm! : undefined,
       category: parsedCategory?.success ? parsedCategory.data : undefined,
       status: parsedStatus?.success ? parsedStatus.data : undefined,
@@ -53,20 +53,20 @@ export async function requestRoutes(fastify: FastifyInstance) {
     });
   });
 
-  fastify.post('/api/v1/requests', { preHandler }, async (req, reply) => {
+  fastify.post('/api/v1/feedback', { preHandler }, async (req, reply) => {
     reply.header('Cache-Control', 'private, no-store');
-    const body = RequestThreadCreateSchema.parse(req.body);
-    const created = await repo.createRequestThread(req.user!.npm!, body);
+    const body = FeedbackThreadCreateSchema.parse(req.body);
+    const created = await repo.createFeedbackThread(req.user!.npm!, body);
     return reply.code(201).send({ data: created });
   });
 
-  fastify.get('/api/v1/requests/:id', { preHandler }, async (req, reply) => {
+  fastify.get('/api/v1/feedback/:id', { preHandler }, async (req, reply) => {
     reply.header('Cache-Control', 'private, no-store');
     const id = parsePositiveId((req.params as { id: string }).id);
-    if (!id) return reply.code(400).send({ error: 'Invalid request thread ID' });
+    if (!id) return reply.code(400).send({ error: 'Invalid feedback thread ID' });
 
-    const thread = await repo.getRequestThreadById(id);
-    if (!thread) return reply.code(404).send({ error: 'Request thread not found' });
+    const thread = await repo.getFeedbackThreadById(id);
+    if (!thread) return reply.code(404).send({ error: 'Feedback thread not found' });
 
     if (!req.user?.isAdmin && thread.authorNpm !== req.user?.npm) {
       return reply.code(403).send({ error: 'Forbidden: thread belongs to another member' });
@@ -75,51 +75,51 @@ export async function requestRoutes(fastify: FastifyInstance) {
     return { data: thread };
   });
 
-  fastify.put('/api/v1/requests/:id', { preHandler }, async (req, reply) => {
+  fastify.put('/api/v1/feedback/:id', { preHandler }, async (req, reply) => {
     reply.header('Cache-Control', 'private, no-store');
     const id = parsePositiveId((req.params as { id: string }).id);
-    if (!id) return reply.code(400).send({ error: 'Invalid request thread ID' });
+    if (!id) return reply.code(400).send({ error: 'Invalid feedback thread ID' });
 
-    const thread = await repo.getRequestThreadById(id);
-    if (!thread) return reply.code(404).send({ error: 'Request thread not found' });
+    const thread = await repo.getFeedbackThreadById(id);
+    if (!thread) return reply.code(404).send({ error: 'Feedback thread not found' });
 
     if (!req.user?.isAdmin && thread.authorNpm !== req.user?.npm) {
       return reply.code(403).send({ error: 'Forbidden: thread belongs to another member' });
     }
 
-    const body = RequestThreadUpdateSchema.parse(req.body);
+    const body = FeedbackThreadUpdateSchema.parse(req.body);
     if (!req.user?.isAdmin && body.status !== undefined && body.status !== 'closed') {
       return reply.code(403).send({ error: 'Forbidden: members can only close their own threads' });
     }
 
-    const updated = await repo.updateRequestThread(id, body);
-    if (!updated) return reply.code(404).send({ error: 'Request thread not found' });
+    const updated = await repo.updateFeedbackThread(id, body);
+    if (!updated) return reply.code(404).send({ error: 'Feedback thread not found' });
     return { data: updated };
   });
 
-  fastify.delete('/api/v1/requests/:id', { preHandler }, async (req, reply) => {
+  fastify.delete('/api/v1/feedback/:id', { preHandler }, async (req, reply) => {
     reply.header('Cache-Control', 'private, no-store');
     const id = parsePositiveId((req.params as { id: string }).id);
-    if (!id) return reply.code(400).send({ error: 'Invalid request thread ID' });
+    if (!id) return reply.code(400).send({ error: 'Invalid feedback thread ID' });
 
-    const thread = await repo.getRequestThreadById(id);
-    if (!thread) return reply.code(404).send({ error: 'Request thread not found' });
+    const thread = await repo.getFeedbackThreadById(id);
+    if (!thread) return reply.code(404).send({ error: 'Feedback thread not found' });
 
     if (!req.user?.isAdmin && thread.authorNpm !== req.user?.npm) {
       return reply.code(403).send({ error: 'Forbidden: thread belongs to another member' });
     }
 
-    await repo.deleteRequestThread(id);
+    await repo.deleteFeedbackThread(id);
     return { data: { id } };
   });
 
-  fastify.post('/api/v1/requests/:id/messages', { preHandler }, async (req, reply) => {
+  fastify.post('/api/v1/feedback/:id/messages', { preHandler }, async (req, reply) => {
     reply.header('Cache-Control', 'private, no-store');
     const id = parsePositiveId((req.params as { id: string }).id);
-    if (!id) return reply.code(400).send({ error: 'Invalid request thread ID' });
+    if (!id) return reply.code(400).send({ error: 'Invalid feedback thread ID' });
 
-    const thread = await repo.getRequestThreadById(id);
-    if (!thread) return reply.code(404).send({ error: 'Request thread not found' });
+    const thread = await repo.getFeedbackThreadById(id);
+    if (!thread) return reply.code(404).send({ error: 'Feedback thread not found' });
 
     if (!req.user?.isAdmin && thread.authorNpm !== req.user?.npm) {
       return reply.code(403).send({ error: 'Forbidden: thread belongs to another member' });
@@ -129,14 +129,14 @@ export async function requestRoutes(fastify: FastifyInstance) {
       return reply.code(400).send({ error: 'Thread is closed for new replies' });
     }
 
-    const body = RequestMessageCreateSchema.parse(req.body);
+    const body = FeedbackMessageCreateSchema.parse(req.body);
     const authorRole = req.user?.isAdmin ? 'admin' : 'user';
-    const created = await repo.createRequestMessage(id, req.user!.npm!, authorRole, body);
+    const created = await repo.createFeedbackMessage(id, req.user!.npm!, authorRole, body);
     return reply.code(201).send({ data: created });
   });
 
   fastify.put(
-    '/api/v1/requests/:id/messages/:messageId',
+    '/api/v1/feedback/:id/messages/:messageId',
     { preHandler },
     async (req, reply) => {
       reply.header('Cache-Control', 'private, no-store');
@@ -147,10 +147,10 @@ export async function requestRoutes(fastify: FastifyInstance) {
         return reply.code(400).send({ error: 'Invalid thread or message ID' });
       }
 
-      const thread = await repo.getRequestThreadById(id);
-      if (!thread) return reply.code(404).send({ error: 'Request thread not found' });
+      const thread = await repo.getFeedbackThreadById(id);
+      if (!thread) return reply.code(404).send({ error: 'Feedback thread not found' });
 
-      const message = await repo.getRequestMessageById(messageId);
+      const message = await repo.getFeedbackMessageById(messageId);
       if (!message || message.threadId !== id) {
         return reply.code(404).send({ error: 'Message not found' });
       }
@@ -159,15 +159,15 @@ export async function requestRoutes(fastify: FastifyInstance) {
         return reply.code(403).send({ error: 'Forbidden: cannot edit another member message' });
       }
 
-      const body = RequestMessageUpdateSchema.parse(req.body);
-      const updated = await repo.updateRequestMessage(id, messageId, body);
+      const body = FeedbackMessageUpdateSchema.parse(req.body);
+      const updated = await repo.updateFeedbackMessage(id, messageId, body);
       if (!updated) return reply.code(404).send({ error: 'Message not found' });
       return { data: updated };
     },
   );
 
   fastify.delete(
-    '/api/v1/requests/:id/messages/:messageId',
+    '/api/v1/feedback/:id/messages/:messageId',
     { preHandler },
     async (req, reply) => {
       reply.header('Cache-Control', 'private, no-store');
@@ -178,10 +178,10 @@ export async function requestRoutes(fastify: FastifyInstance) {
         return reply.code(400).send({ error: 'Invalid thread or message ID' });
       }
 
-      const thread = await repo.getRequestThreadById(id);
-      if (!thread) return reply.code(404).send({ error: 'Request thread not found' });
+      const thread = await repo.getFeedbackThreadById(id);
+      if (!thread) return reply.code(404).send({ error: 'Feedback thread not found' });
 
-      const message = await repo.getRequestMessageById(messageId);
+      const message = await repo.getFeedbackMessageById(messageId);
       if (!message || message.threadId !== id) {
         return reply.code(404).send({ error: 'Message not found' });
       }
@@ -190,7 +190,7 @@ export async function requestRoutes(fastify: FastifyInstance) {
         return reply.code(403).send({ error: 'Forbidden: cannot delete another member message' });
       }
 
-      await repo.deleteRequestMessage(id, messageId);
+      await repo.deleteFeedbackMessage(id, messageId);
       return { data: { id: messageId } };
     },
   );

@@ -49,9 +49,9 @@ Frontend design source of truth for CSUI Zenith (`zenith.csui.dev`). Built with 
 
 ## Layout & Navigation
 
-- Sticky top header (`h-14`, `max-w-6xl`): left `ZENITH` wordmark (no logo icon), right icon-only `ThemeToggle` positioned to the left of the right-aligned `DropdownMenu` navigation (`Profilku`, `Edit Profil`, `Teman Angkatan`, and admin routes for admins).
-- Member pages (`/my-profile`, `/my-profile/edit`, `/directory`) use showcase/social cards with fun, position-agnostic Bahasa Indonesia instructions and tips.
-- Admin routes (`/programs`, `/courses`, `/members`, `/achievements`) use dense utilitarian `Table` primitives and concise English copy without decorative banners.
+- Sticky top header (`h-14`, `max-w-6xl`): left `ZENITH` wordmark (no logo icon), right icon-only `ThemeToggle` positioned to the left of the right-aligned `DropdownMenu` navigation (`Profilku`, `Permintaan Konten`, `Feedback & Bantuan`, and `Admin Hub` for admins).
+- Member pages (`/my-profile`, `/my-profile/edit`, `/content-requests`, `/feedback`) use showcase/social cards with fun, position-agnostic Bahasa Indonesia instructions and tips.
+- Admin Hub (`/admin`) and admin routes (`/programs`, `/courses`, `/members`, `/achievements`, `/gallery`, `/activities`, `/admin/requests`) use dense utilitarian `Card` and `Table` primitives and concise English copy without decorative banners.
 - Async states: always render via `ListState` (`loading`, `error`, `empty`).
 
 ## Anti-Slop Gates

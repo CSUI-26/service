@@ -1,11 +1,17 @@
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
-import { cleanup, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import type { RequestThreadDetail, RequestThreadSummary } from '@zenith/shared';
+import type {
+  ContentRequestDetail,
+  ContentRequestSummary,
+  FeedbackThreadDetail,
+  FeedbackThreadSummary,
+} from '@zenith/shared';
 import { AuthContext } from '@/features/auth/useAuth';
 import type { AuthUser } from '@/features/auth/types';
+import ContentRequestsPage from '@/features/content-requests/ContentRequestsPage';
+import FeedbackPage from '@/features/feedback/FeedbackPage';
 import AdminRequestsPage from '@/features/requests/AdminRequestsPage';
-import MemberRequestsPage from '@/features/requests/MemberRequestsPage';
 import * as apiModule from '@/lib/api';
 
 const MEMBER_USER: AuthUser = {
@@ -26,7 +32,7 @@ const ADMIN_USER: AuthUser = {
   isSuperAdmin: false,
 };
 
-const THREAD_SUMMARY_FIXTURE: RequestThreadSummary = {
+const CONTENT_SUMMARY: ContentRequestSummary = {
   id: 42,
   authorNpm: MEMBER_USER.npm!,
   author: {
@@ -34,13 +40,12 @@ const THREAD_SUMMARY_FIXTURE: RequestThreadSummary = {
     name: MEMBER_USER.nama,
     nama_panggilan: 'Budi',
   },
-  category: 'content',
+  contentType: 'achievement',
   title: 'Request Prestasi Gemastik 2026',
   description: 'Tim ZenithSec meraih juara 2 bidang Keamanan Siber.',
   status: 'open',
   image: null,
   metadata: {
-    contentType: 'achievement',
     year: 2026,
     teamName: 'ZenithSec',
   },
@@ -49,19 +54,51 @@ const THREAD_SUMMARY_FIXTURE: RequestThreadSummary = {
   updatedAt: 1796000500,
 };
 
-const THREAD_DETAIL_FIXTURE: RequestThreadDetail = {
-  ...THREAD_SUMMARY_FIXTURE,
+const CONTENT_DETAIL: ContentRequestDetail = {
+  ...CONTENT_SUMMARY,
   messages: [
     {
       id: 101,
-      threadId: 42,
+      requestId: 42,
       authorNpm: MEMBER_USER.npm!,
       authorRole: 'user',
-      author: THREAD_SUMMARY_FIXTURE.author,
-      body: 'Mohon bantuannya untuk verifikasi sertifikat ya kak.',
+      author: CONTENT_SUMMARY.author,
+      body: 'Mohon bantuannya untuk verifikasi sertifikat.',
       image: null,
       createdAt: 1796000200,
       updatedAt: 1796000200,
+    },
+  ],
+};
+
+const FEEDBACK_SUMMARY: FeedbackThreadSummary = {
+  id: 77,
+  authorNpm: MEMBER_USER.npm!,
+  author: CONTENT_SUMMARY.author,
+  category: 'help',
+  title: 'Kendala Akses Profil',
+  description: 'Mohon bantu cek email SSO saya.',
+  status: 'in_progress',
+  image: null,
+  externalUrl: 'https://example.com/issue',
+  messageCount: 1,
+  createdAt: 1796001000,
+  updatedAt: 1796001500,
+};
+
+const FEEDBACK_DETAIL: FeedbackThreadDetail = {
+  ...FEEDBACK_SUMMARY,
+  messages: [
+    {
+      id: 201,
+      threadId: 77,
+      authorNpm: ADMIN_USER.npm!,
+      authorRole: 'admin',
+      author: { npm: ADMIN_USER.npm!, name: ADMIN_USER.nama, nama_panggilan: 'Admin' },
+      body: 'Sedang kami periksa.',
+      image: null,
+      createdAt: 1796001200,
+      updatedAt: 1796001200,
     },
   ],
 };
@@ -96,7 +133,7 @@ function assertAntiSlopAndAccessibleButtons() {
   }
 }
 
-describe('MemberRequestsPage & AdminRequestsPage', () => {
+describe('ContentRequestsPage, FeedbackPage & AdminRequestsPage', () => {
   beforeAll(() => {
     if (!Element.prototype.hasPointerCapture) {
       Element.prototype.hasPointerCapture = () => false;
@@ -117,14 +154,17 @@ describe('MemberRequestsPage & AdminRequestsPage', () => {
     cleanup();
   });
 
-  it('renders MemberRequestsPage Petunjuk cards, threads, and opens thread & create dialogs cleanly', async () => {
+  it('hides Link Drive on achievement content requests, shows it on gallery, and omits externalUrl on achievement submit', async () => {
     const user = userEvent.setup();
-    vi.spyOn(apiModule, 'api').mockImplementation(async (path) => {
-      if (path.startsWith('/requests/42')) {
-        return { data: THREAD_DETAIL_FIXTURE };
+    const apiSpy = vi.spyOn(apiModule, 'api').mockImplementation(async (path, init) => {
+      if (init?.method === 'POST' && path === '/content-requests') {
+        return { data: CONTENT_DETAIL };
+      }
+      if (path.startsWith('/content-requests/42')) {
+        return { data: CONTENT_DETAIL };
       }
       return {
-        data: [THREAD_SUMMARY_FIXTURE],
+        data: [CONTENT_SUMMARY],
         total: 1,
         page: 1,
         limit: 10,
@@ -132,35 +172,116 @@ describe('MemberRequestsPage & AdminRequestsPage', () => {
       };
     });
 
-    renderWithAuth(<MemberRequestsPage />, MEMBER_USER);
+    renderWithAuth(<ContentRequestsPage />, MEMBER_USER);
 
     expect(await screen.findByText('Request Prestasi Gemastik 2026')).toBeInTheDocument();
-    expect(screen.getByText('1. Pilih Kategori yang Pas')).toBeInTheDocument();
-    expect(screen.getByText('2. Lampirkan Foto & Info Pendukung')).toBeInTheDocument();
-    expect(screen.getByText('3. Diskusi Privat Bareng Admin')).toBeInTheDocument();
-
+    expect(screen.getByText('1. Pilih Jenis Konten')).toBeInTheDocument();
     assertAntiSlopAndAccessibleButtons();
 
-    await user.click(screen.getByRole('button', { name: 'Buka Diskusi' }));
+    await user.click(screen.getByRole('button', { name: 'Ajukan Konten' }));
     expect(await screen.findByRole('dialog')).toBeInTheDocument();
-    expect(
-      screen.getByText('Mohon bantuannya untuk verifikasi sertifikat ya kak.'),
-    ).toBeInTheDocument();
 
-    await user.keyboard('{Escape}');
-    await user.click(screen.getByRole('button', { name: 'Buat Request Baru' }));
-    expect(await screen.findByRole('dialog')).toBeInTheDocument();
-    expect(screen.getByLabelText('Judul')).toBeInTheDocument();
+    // Default contentType is 'achievement': Link Drive must NOT be rendered
+    expect(screen.queryByLabelText(/link drive/i)).not.toBeInTheDocument();
+
+    // Switch to 'Galeri': Link Drive MUST appear
+    await user.click(screen.getByRole('combobox', { name: 'Jenis Konten' }));
+    await user.click(await screen.findByRole('option', { name: 'Galeri' }));
+    expect(screen.getByLabelText(/link drive/i)).toBeInTheDocument();
+
+    // Switch back to 'Achievement' and submit
+    await user.click(screen.getByRole('combobox', { name: 'Jenis Konten' }));
+    await user.click(await screen.findByRole('option', { name: 'Achievement' }));
+    expect(screen.queryByLabelText(/link drive/i)).not.toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText('Judul Konten'), {
+      target: { value: 'Juara 1 Compfest 2026' },
+    });
+    fireEvent.change(screen.getByLabelText('Detail Konten'), {
+      target: { value: 'Tim meraih juara 1 kategori CTF.' },
+    });
+    await user.click(screen.getByRole('button', { name: 'Kirim Permintaan' }));
+
+    await waitFor(() => {
+      expect(apiSpy).toHaveBeenCalledWith(
+        '/content-requests',
+        expect.objectContaining({ method: 'POST' }),
+      );
+    });
+    const postCall = apiSpy.mock.calls.find(
+      ([p, init]) => p === '/content-requests' && init?.method === 'POST',
+    );
+    const body = JSON.parse(String(postCall?.[1]?.body));
+    expect(body.contentType).toBe('achievement');
+    expect(body.metadata).not.toHaveProperty('externalUrl');
   });
 
-  it('renders AdminRequestsPage table, inspects thread, and passes anti-slop checks', async () => {
+  it('renders FeedbackPage, filters categories, and creates a thread via /feedback', async () => {
     const user = userEvent.setup();
-    vi.spyOn(apiModule, 'api').mockImplementation(async (path) => {
-      if (path.startsWith('/requests/42')) {
-        return { data: THREAD_DETAIL_FIXTURE };
+    const apiSpy = vi.spyOn(apiModule, 'api').mockImplementation(async (path, init) => {
+      if (init?.method === 'POST' && path === '/feedback') {
+        return { data: FEEDBACK_DETAIL };
+      }
+      if (path.startsWith('/feedback/77')) {
+        return { data: FEEDBACK_DETAIL };
       }
       return {
-        data: [THREAD_SUMMARY_FIXTURE],
+        data: [FEEDBACK_SUMMARY],
+        total: 1,
+        page: 1,
+        limit: 10,
+        totalPages: 1,
+      };
+    });
+
+    renderWithAuth(<FeedbackPage />, MEMBER_USER);
+
+    expect(await screen.findByText('Kendala Akses Profil')).toBeInTheDocument();
+    assertAntiSlopAndAccessibleButtons();
+
+    await user.click(screen.getByRole('button', { name: 'Bantuan' }));
+    await waitFor(() => {
+      expect(apiSpy.mock.calls.some(([url]) => String(url).includes('category=help'))).toBe(true);
+    });
+
+    await user.click(screen.getByRole('button', { name: 'Kirim Pesan Baru' }));
+    expect(await screen.findByRole('dialog')).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText('Judul'), {
+      target: { value: 'Saran Fitur Baru' },
+    });
+    fireEvent.change(screen.getByLabelText('Detail Pesan'), {
+      target: { value: 'Tambahkan filter tahun di galeri.' },
+    });
+    await user.click(screen.getByRole('button', { name: 'Kirim Pesan' }));
+
+    await waitFor(() => {
+      expect(apiSpy).toHaveBeenCalledWith(
+        '/feedback',
+        expect.objectContaining({ method: 'POST' }),
+      );
+    });
+  });
+
+  it('renders two-tab AdminRequestsPage calling /content-requests and /feedback', async () => {
+    const user = userEvent.setup();
+    vi.spyOn(apiModule, 'api').mockImplementation(async (path) => {
+      if (path.startsWith('/content-requests/42')) {
+        return { data: CONTENT_DETAIL };
+      }
+      if (path.startsWith('/content-requests')) {
+        return {
+          data: [CONTENT_SUMMARY],
+          total: 1,
+          page: 1,
+          limit: 15,
+          totalPages: 1,
+        };
+      }
+      if (path.startsWith('/feedback/77')) {
+        return { data: FEEDBACK_DETAIL };
+      }
+      return {
+        data: [FEEDBACK_SUMMARY],
         total: 1,
         page: 1,
         limit: 15,
@@ -170,18 +291,18 @@ describe('MemberRequestsPage & AdminRequestsPage', () => {
 
     renderWithAuth(<AdminRequestsPage />, ADMIN_USER);
 
-    expect(await screen.findByRole('table')).toBeInTheDocument();
+    expect(await screen.findByText('Request Prestasi Gemastik 2026')).toBeInTheDocument();
     expect(screen.getByText('#42')).toBeInTheDocument();
-    expect(screen.getByText('Budi Santoso')).toBeInTheDocument();
-    expect(screen.getByText('Request for Content')).toBeInTheDocument();
-    expect(screen.getByText('Achievement')).toBeInTheDocument();
-
     assertAntiSlopAndAccessibleButtons();
 
+    await user.click(screen.getByRole('tab', { name: 'Feedback & Help' }));
+    expect(await screen.findByText('Kendala Akses Profil')).toBeInTheDocument();
+    expect(screen.getByText('#77')).toBeInTheDocument();
+
     await user.click(
-      screen.getByRole('button', { name: 'Inspect thread Request Prestasi Gemastik 2026' }),
+      screen.getByRole('button', { name: 'Inspect thread Kendala Akses Profil' }),
     );
     expect(await screen.findByRole('dialog')).toBeInTheDocument();
-    expect(screen.getByLabelText('Write a reply')).toBeInTheDocument();
+    expect(screen.getByText('Sedang kami periksa.')).toBeInTheDocument();
   });
 });

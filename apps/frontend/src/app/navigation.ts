@@ -1,14 +1,8 @@
 import {
-  BookOpen,
-  Calendar,
-  GraduationCap,
-  Images,
-  Inbox,
   MessageSquarePlus,
-  Pencil,
-  Trophy,
+  ShieldCheck,
+  Sparkles,
   User,
-  Users,
   type LucideIcon,
 } from 'lucide-react';
 
@@ -19,91 +13,63 @@ export interface NavItem {
   icon: LucideIcon;
   end?: boolean;
   requireAdmin?: boolean;
+  matchPaths?: string[];
 }
+
+export const ADMIN_SUB_ROUTES = [
+  '/programs',
+  '/courses',
+  '/members',
+  '/achievements',
+  '/gallery',
+  '/activities',
+  '/admin/requests',
+] as const;
 
 export const navItems: NavItem[] = [
   {
     to: '/my-profile',
     label: 'Profilku',
-    description: 'Lihat tampilan kartu profil',
+    description: 'Lihat & atur kartu profil',
     icon: User,
+    end: false,
+  },
+  {
+    to: '/content-requests',
+    label: 'Permintaan Konten',
+    description: 'Ajukan prestasi, galeri & kegiatan',
+    icon: Sparkles,
     end: true,
   },
   {
-    to: '/my-profile/edit',
-    label: 'Edit Profil',
-    description: 'Ubah bio, foto & sosmed',
-    icon: Pencil,
-    end: true,
-  },
-  {
-    to: '/directory',
-    label: 'Teman Angkatan',
-    description: 'Jelajahi direktori Zenith 2026',
-    icon: Users,
-    end: true,
-  },
-  {
-    to: '/requests',
-    label: 'Aspirasi & Request',
-    description: 'Usul konten, feedback & bantuan',
+    to: '/feedback',
+    label: 'Feedback & Bantuan',
+    description: 'Kirim saran & minta bantuan admin',
     icon: MessageSquarePlus,
     end: true,
   },
   {
-    to: '/programs',
-    label: 'Study Programs',
-    description: 'Manage study programs',
-    icon: GraduationCap,
+    to: '/admin',
+    label: 'Admin Hub',
+    description: 'Manage programs, members & inbox',
+    icon: ShieldCheck,
     requireAdmin: true,
-  },
-  {
-    to: '/courses',
-    label: 'Courses',
-    description: 'Manage curriculum courses',
-    icon: BookOpen,
-    requireAdmin: true,
-  },
-  {
-    to: '/members',
-    label: 'Members (Admin)',
-    description: 'Manage member records & roles',
-    icon: Users,
-    requireAdmin: true,
-  },
-  {
-    to: '/achievements',
-    label: 'Achievements',
-    description: 'Manage featured & yearly awards',
-    icon: Trophy,
-    requireAdmin: true,
-  },
-  {
-    to: '/gallery',
-    label: 'Gallery',
-    description: 'Manage cohort photos & mascots',
-    icon: Images,
-    requireAdmin: true,
-  },
-  {
-    to: '/activities',
-    label: 'Activities',
-    description: 'Manage cohort activities',
-    icon: Calendar,
-    requireAdmin: true,
-  },
-  {
-    to: '/admin/requests',
-    label: 'Requests (Admin)',
-    description: 'Triage member requests & threads',
-    icon: Inbox,
-    requireAdmin: true,
+    matchPaths: [...ADMIN_SUB_ROUTES],
   },
 ];
 
+function matchesPath(pathname: string, target: string, exact?: boolean): boolean {
+  if (exact) return pathname === target;
+  return pathname === target || pathname.startsWith(`${target}/`);
+}
+
+export function isAdminSubRoute(pathname: string): boolean {
+  return ADMIN_SUB_ROUTES.some((route) => matchesPath(pathname, route));
+}
+
 export function isNavItemActive(pathname: string, item: NavItem): boolean {
-  if (item.end) return pathname === item.to;
-  return pathname === item.to || pathname.startsWith(`${item.to}/`);
+  if (matchesPath(pathname, item.to, item.end)) return true;
+  return Boolean(item.matchPaths?.some((prefix) => matchesPath(pathname, prefix)));
 }
 
 export function findNavItem(pathname: string): NavItem | undefined {

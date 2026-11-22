@@ -36,6 +36,13 @@
       "when": 1796000000000,
       "tag": "0004_request_threads",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1796800000000,
+      "tag": "0005_split_requests_and_member_dob",
+      "breakpoints": true
     }
   ]
 }

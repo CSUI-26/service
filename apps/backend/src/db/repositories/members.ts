@@ -12,6 +12,7 @@ function mapMemberRow(row: typeof members.$inferSelect, programName?: string | n
     nama_panggilan: row.namaPanggilan,
     major: programName || row.programId,
     programId: row.programId,
+    dateOfBirth: row.dateOfBirth ?? null,
     instagram: row.instagram ?? '',
     line: row.line ?? '',
     github: row.github ?? '',
@@ -116,6 +117,7 @@ export async function createMember(member: Member): Promise<Member> {
     name: member.name,
     namaPanggilan: member.nama_panggilan,
     programId,
+    dateOfBirth: member.dateOfBirth ?? null,
     instagram: member.instagram || '',
     line: member.line || '',
     github: member.github || '',
@@ -143,6 +145,7 @@ export async function updateMember(npm: string, updates: Partial<Member>): Promi
     if (!programId) throw new Error('Program not found');
     set.programId = programId;
   }
+  if (updates.dateOfBirth !== undefined) set.dateOfBirth = updates.dateOfBirth;
   if (updates.instagram !== undefined) set.instagram = updates.instagram;
   if (updates.line !== undefined) set.line = updates.line;
   if (updates.github !== undefined) set.github = updates.github;

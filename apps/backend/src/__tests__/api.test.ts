@@ -385,4 +385,101 @@ describe('API integration', () => {
       });
     }
   });
+
+  it('strips dateOfBirth for unauthenticated callers and peer members, exposes it to self and admins, and preserves it when omitted on save', async () => {
+    const adminToken = signToken({ nama: 'Admin', npm: '2606888572' });
+    const listRes = await app.inject({
+      method: 'GET',
+      url: '/api/v1/members?limit=10',
+      headers: { cookie: `token=${adminToken}` },
+    });
+    expect(listRes.statusCode).toBe(200);
+    const nonAdmins = (listRes.json().data as any[]).filter(
+      (m) => m.npm !== '2606888572' && m.role !== 'admin',
+    );
+    const target = nonAdmins[0];
+    const peer = nonAdmins[1];
+    const targetToken = signToken({ nama: target.name, npm: target.npm });
+    const peerToken = signToken({ nama: peer.name, npm: peer.npm });
+    const originalDob = target.dateOfBirth ?? null;
+    const originalNiche = target.niche;
+
+    try {
+      const setDobRes = await app.inject({
+        method: 'PUT',
+        url: '/api/v1/members/me',
+        headers: { cookie: `token=${targetToken}` },
+        payload: { dateOfBirth: '2007-05-14' },
+      });
+      expect(setDobRes.statusCode).toBe(200);
+      expect(setDobRes.json().data.dateOfBirth).toBe('2007-05-14');
+
+      // Invalid calendar date rejected with 400
+      const invalidDobRes = await app.inject({
+        method: 'PUT',
+        url: '/api/v1/members/me',
+        headers: { cookie: `token=${targetToken}` },
+        payload: { dateOfBirth: '2026-02-31' },
+      });
+      expect(invalidDobRes.statusCode).toBe(400);
+
+      // Omitting dateOfBirth preserves stored value
+      const omitDobRes = await app.inject({
+        method: 'PUT',
+        url: '/api/v1/members/me',
+        headers: { cookie: `token=${targetToken}` },
+        payload: { niche: 'DOB Preservation Check' },
+      });
+      expect(omitDobRes.statusCode).toBe(200);
+      expect(omitDobRes.json().data.dateOfBirth).toBe('2007-05-14');
+
+      // Unauthenticated caller cannot see dateOfBirth
+      const anonRes = await app.inject({ method: 'GET', url: `/api/v1/members/${target.npm}` });
+      expect(anonRes.statusCode).toBe(200);
+      expect(anonRes.json().data).not.toHaveProperty('dateOfBirth');
+
+      // Peer non-admin member cannot see dateOfBirth
+      const peerSingleRes = await app.inject({
+        method: 'GET',
+        url: `/api/v1/members/${target.npm}`,
+        headers: { cookie: `token=${peerToken}` },
+      });
+      expect(peerSingleRes.statusCode).toBe(200);
+      expect(peerSingleRes.json().data).not.toHaveProperty('dateOfBirth');
+
+      const peerListRes = await app.inject({
+        method: 'GET',
+        url: '/api/v1/members?limit=10',
+        headers: { cookie: `token=${peerToken}` },
+      });
+      expect(peerListRes.statusCode).toBe(200);
+      const listedTargetForPeer = (peerListRes.json().data as any[]).find((m) => m.npm === target.npm);
+      expect(listedTargetForPeer).toBeDefined();
+      expect(listedTargetForPeer).not.toHaveProperty('dateOfBirth');
+
+      // Self and admin can see dateOfBirth
+      const selfRes = await app.inject({
+        method: 'GET',
+        url: `/api/v1/members/${target.npm}`,
+        headers: { cookie: `token=${targetToken}` },
+      });
+      expect(selfRes.statusCode).toBe(200);
+      expect(selfRes.json().data.dateOfBirth).toBe('2007-05-14');
+
+      const adminRes = await app.inject({
+        method: 'GET',
+        url: `/api/v1/members/${target.npm}`,
+        headers: { cookie: `token=${adminToken}` },
+      });
+      expect(adminRes.statusCode).toBe(200);
+      expect(adminRes.json().data.dateOfBirth).toBe('2007-05-14');
+    } finally {
+      await app.inject({
+        method: 'PUT',
+        url: '/api/v1/members/me',
+        headers: { cookie: `token=${targetToken}` },
+        payload: { dateOfBirth: originalDob, niche: originalNiche },
+      });
+    }
+  });
 });

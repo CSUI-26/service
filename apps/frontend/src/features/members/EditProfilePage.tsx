@@ -29,6 +29,7 @@ export default function EditProfilePage() {
     nama_panggilan: '',
     email: '',
     programId: '',
+    dateOfBirth: '',
     instagram: '',
     line: '',
     github: '',
@@ -68,6 +69,7 @@ export default function EditProfilePage() {
             nama_panggilan: res.data.nama_panggilan ?? '',
             email: res.data.email ?? '',
             programId: res.data.programId ?? '',
+            dateOfBirth: res.data.dateOfBirth ?? '',
             instagram: res.data.instagram ?? '',
             line: res.data.line ?? '',
             github: res.data.github ?? '',
@@ -107,7 +109,9 @@ export default function EditProfilePage() {
     if (!user?.npm) return;
     setSaving(true);
     try {
-      const normalized = normalizeMemberSocials(form);
+      // Omit hidden dateOfBirth on save so stored DB values are never cleared while commented out
+      const { dateOfBirth: _hiddenDob, ...profileFields } = form;
+      const normalized = normalizeMemberSocials(profileFields);
       const res = await membersApi.updateMe(normalized);
       emitProfileUpdated(res.data.foto?.url ?? normalized.foto?.url ?? '');
       toast.success('Profil berhasil diperbarui');
@@ -258,6 +262,18 @@ export default function EditProfilePage() {
               />
             </div>
           </div>
+
+          {/* Hidden Date of Birth field: uncomment this block and pass dateOfBirth (or null when empty) in handleSubmit when ready to expose
+          <div className="space-y-1.5">
+            <Label htmlFor="dateOfBirth">Tanggal Lahir (Opsional)</Label>
+            <Input
+              id="dateOfBirth"
+              type="date"
+              value={form.dateOfBirth}
+              onChange={(e) => handleChange('dateOfBirth', e.target.value)}
+            />
+          </div>
+          */}
 
           <div className="space-y-1.5">
             <div className="flex items-center justify-between gap-2">

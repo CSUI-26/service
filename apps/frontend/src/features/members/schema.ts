@@ -1,5 +1,5 @@
-﻿import { z } from 'zod';
-import { ImageConfigSchema } from '@zenith/shared';
+import { z } from 'zod';
+import { ImageConfigSchema, isValidIsoDate } from '@zenith/shared';
 import type { Member } from '@/features/members/types';
 import { normalizeMemberSocials } from '@/features/members/socialLinks';
 
@@ -17,6 +17,14 @@ export const memberFormSchema = z.object({
   name: z.string().trim().min(1, 'Name is required'),
   nama_panggilan: z.string().trim().min(1, 'Nickname is required'),
   programId: z.string().trim().min(1, 'Study program is required'),
+  dateOfBirth: z
+    .string()
+    .trim()
+    .refine(
+      (value) => value === '' || isValidIsoDate(value),
+      'Date of birth must be a valid YYYY-MM-DD date not in the future',
+    )
+    .optional(),
   niche: z.string(),
   deskripsi: z.string(),
   quotes: z.string(),
@@ -38,6 +46,7 @@ export function toMemberPayload(values: MemberFormValues): Member {
     nama_panggilan: values.nama_panggilan,
     programId: values.programId,
     major: '',
+    dateOfBirth: values.dateOfBirth?.trim() ? values.dateOfBirth.trim() : null,
     niche: values.niche,
     deskripsi: values.deskripsi,
     quotes: values.quotes,

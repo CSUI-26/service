@@ -3,7 +3,6 @@ import {
   Camera,
   Lock,
   MessageSquare,
-  MessageSquarePlus,
   Pencil,
   Plus,
   Sparkles,
@@ -11,10 +10,10 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import type {
-  RequestCategory,
+  ContentRequestCreate,
+  ContentRequestSummary,
+  ContentRequestType,
   RequestStatus,
-  RequestThreadCreate,
-  RequestThreadSummary,
 } from '@zenith/shared';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -31,48 +30,47 @@ import { ListState } from '@/components/patterns/ListState';
 import { ListSkeleton } from '@/components/patterns/skeletons';
 import { Paginator } from '@/components/Paginator';
 import { useAuth } from '@/features/auth/useAuth';
-import { RequestFormDialog } from '@/features/requests/RequestFormDialog';
-import { RequestThreadDialog } from '@/features/requests/RequestThreadDialog';
+import { ContentRequestFormDialog } from '@/features/content-requests/ContentRequestFormDialog';
 import {
-  MEMBER_CATEGORY_LABELS,
   MEMBER_CONTENT_TYPE_LABELS,
   MEMBER_STATUS_LABELS,
+  contentRequestsApi,
   formatEpochTimestamp,
-  requestsApi,
   statusBadgeVariant,
-} from '@/features/requests/api';
+} from '@/features/content-requests/api';
+import { ThreadConversationDialog } from '@/features/requests/ThreadConversationDialog';
 import { useDocumentTitle } from '@/hooks/useDocumentTitle';
 import { useResourceList } from '@/hooks/useResourceList';
 
 const PAGE_SIZE = 10;
 
-const CATEGORY_FILTERS: Array<{ value: '' | RequestCategory; label: string }> = [
+const TYPE_FILTERS: Array<{ value: '' | ContentRequestType; label: string }> = [
   { value: '', label: 'Semua' },
-  { value: 'content', label: 'Request Konten' },
-  { value: 'feedback', label: 'Feedback' },
-  { value: 'help', label: 'Bantuan' },
-  { value: 'other', label: 'Lainnya' },
+  { value: 'achievement', label: 'Achievement' },
+  { value: 'gallery', label: 'Galeri' },
+  { value: 'activity', label: 'Kegiatan' },
+  { value: 'other', label: 'Konten Lainnya' },
 ];
 
-export default function MemberRequestsPage() {
-  useDocumentTitle('Aspirasi & Request');
+export default function ContentRequestsPage() {
+  useDocumentTitle('Permintaan Konten');
 
   const { user } = useAuth();
-  const [categoryFilter, setCategoryFilter] = useState<'' | RequestCategory>('');
+  const [typeFilter, setTypeFilter] = useState<'' | ContentRequestType>('');
   const [statusFilter, setStatusFilter] = useState<'' | RequestStatus>('');
   const [formOpen, setFormOpen] = useState(false);
-  const [editing, setEditing] = useState<RequestThreadSummary | null>(null);
+  const [editing, setEditing] = useState<ContentRequestSummary | null>(null);
   const [activeThreadId, setActiveThreadId] = useState<number | null>(null);
-  const [deleting, setDeleting] = useState<RequestThreadSummary | null>(null);
+  const [deleting, setDeleting] = useState<ContentRequestSummary | null>(null);
   const [saving, setSaving] = useState(false);
   const [removing, setRemoving] = useState(false);
 
-  const list = useResourceList<RequestThreadSummary>({
-    path: '/requests',
+  const list = useResourceList<ContentRequestSummary>({
+    path: '/content-requests',
     pageSize: PAGE_SIZE,
     filters: {
       scope: 'mine',
-      category: categoryFilter,
+      contentType: typeFilter,
       status: statusFilter,
     },
   });
@@ -82,27 +80,27 @@ export default function MemberRequestsPage() {
     setFormOpen(true);
   };
 
-  const openEdit = (thread: RequestThreadSummary) => {
+  const openEdit = (item: ContentRequestSummary) => {
     setActiveThreadId(null);
-    setEditing(thread);
+    setEditing(item);
     setFormOpen(true);
   };
 
-  const handleSubmitForm = async (payload: RequestThreadCreate) => {
+  const handleSubmitForm = async (payload: ContentRequestCreate) => {
     setSaving(true);
     try {
       if (editing) {
-        await requestsApi.update(editing.id, payload);
-        toast.success('Request berhasil diperbarui');
+        await contentRequestsApi.update(editing.id, payload);
+        toast.success('Permintaan konten diperbarui');
       } else {
-        const res = await requestsApi.create(payload);
-        toast.success('Request terkirim ke admin Zenith');
+        const res = await contentRequestsApi.create(payload);
+        toast.success('Permintaan konten terkirim ke admin Zenith');
         setActiveThreadId(res.data.id);
       }
       setFormOpen(false);
       list.reload();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Gagal menyimpan request');
+      toast.error(err instanceof Error ? err.message : 'Gagal menyimpan permintaan konten');
     } finally {
       setSaving(false);
     }
@@ -116,34 +114,34 @@ export default function MemberRequestsPage() {
     setDeleting(null);
     list.mutate((items) => items.filter((item) => item.id !== target.id));
     try {
-      await requestsApi.remove(target.id);
-      toast.success('Request berhasil dihapus');
+      await contentRequestsApi.remove(target.id);
+      toast.success('Permintaan konten dihapus');
       list.reload();
     } catch (err) {
       list.mutate(() => snapshot);
-      toast.error(err instanceof Error ? err.message : 'Gagal menghapus request');
+      toast.error(err instanceof Error ? err.message : 'Gagal menghapus permintaan konten');
     } finally {
       setRemoving(false);
     }
   };
 
-  const hasFilter = Boolean(categoryFilter || statusFilter);
+  const hasFilter = Boolean(typeFilter || statusFilter);
 
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border pb-4">
         <div>
           <h1 className="text-xl font-bold tracking-tight text-foreground sm:text-2xl">
-            Kotak Aspirasi &amp; Request
+            Permintaan Konten
           </h1>
           <p className="mt-0.5 text-xs text-muted-foreground sm:text-sm">
-            Ajukan request konten, kirim masukan, atau minta bantuan langsung ke admin Zenith.
+            Ajukan prestasi, foto galeri, atau dokumentasi kegiatan angkatan ke admin Zenith.
           </p>
         </div>
 
         <Button type="button" onClick={openCreate} className="rounded-xl">
           <Plus aria-hidden="true" />
-          <span>Buat Request Baru</span>
+          <span>Ajukan Konten</span>
         </Button>
       </div>
 
@@ -151,42 +149,42 @@ export default function MemberRequestsPage() {
         <div className="surface-card space-y-1.5 rounded-2xl border-primary/25 p-4">
           <div className="flex items-center gap-2 text-xs font-bold text-primary">
             <Sparkles className="size-4 shrink-0" aria-hidden="true" />
-            <span>1. Pilih Kategori yang Pas</span>
+            <span>1. Pilih Jenis Konten</span>
           </div>
           <p className="text-xs leading-relaxed text-muted-foreground">
-            Mau ajukan Achievement, foto Galeri, atau Kegiatan baru? Pilih kategori{' '}
-            <strong>Request Konten</strong>. Punya ide seru atau butuh pertolongan? Pilih{' '}
-            <strong>Feedback</strong> atau <strong>Bantuan</strong>.
+            Pilih <strong>Achievement</strong> untuk prestasi tim, <strong>Galeri</strong> untuk foto
+            angkatan, atau <strong>Kegiatan</strong> untuk liputan acara.
           </p>
         </div>
 
         <div className="surface-card space-y-1.5 rounded-2xl border-primary/25 p-4">
-          <div className="flex items-center gap-2 text-xs font-bold text-emerald-400">
+          <div className="flex items-center gap-2 text-xs font-bold text-primary">
             <Camera className="size-4 shrink-0" aria-hidden="true" />
-            <span>2. Lampirkan Foto &amp; Info Pendukung</span>
+            <span>2. Unggah Foto Pendukung</span>
           </div>
           <p className="text-xs leading-relaxed text-muted-foreground">
-            Kalau kamu request konten, unggah foto terbaiknya dan isi detail tambahan seperti
-            jenis konten atau link referensi supaya admin cepat memprosesnya.
+            Lampirkan foto terbaikmu langsung lewat form agar tim konten dapat langsung memproses
+            dan menayangkannya.
           </p>
         </div>
 
         <div className="surface-card space-y-1.5 rounded-2xl border-primary/25 p-4">
-          <div className="flex items-center gap-2 text-xs font-bold text-amber-400">
+          <div className="flex items-center gap-2 text-xs font-bold text-primary">
             <Lock className="size-4 shrink-0" aria-hidden="true" />
-            <span>3. Diskusi Privat Bareng Admin</span>
+            <span>3. Diskusi Privat dengan Admin</span>
           </div>
           <p className="text-xs leading-relaxed text-muted-foreground">
-            Thread ini cuma bisa dibaca oleh kamu dan admin Zenith. Kamu bebas balas pesan, ubah
-            isi request, atau hapus pesanmu kapan saja.
+            Pengajuanmu bersifat privat antara kamu dan admin Zenith. Kamu bisa membalas pesan atau
+            memperbarui detail kapan saja.
           </p>
         </div>
       </div>
 
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex flex-wrap items-center gap-1.5" role="group" aria-label="Filter kategori">
-          {CATEGORY_FILTERS.map((item) => {
-            const active = categoryFilter === item.value;
+        <fieldset className="m-0 flex flex-wrap items-center gap-1.5 border-0 p-0">
+          <legend className="sr-only">Filter jenis konten</legend>
+          {TYPE_FILTERS.map((item) => {
+            const active = typeFilter === item.value;
             return (
               <Button
                 key={item.value || 'all'}
@@ -194,13 +192,13 @@ export default function MemberRequestsPage() {
                 size="sm"
                 variant={active ? 'default' : 'outline'}
                 className="rounded-xl"
-                onClick={() => setCategoryFilter(item.value)}
+                onClick={() => setTypeFilter(item.value)}
               >
                 {item.label}
               </Button>
             );
           })}
-        </div>
+        </fieldset>
 
         <Select
           value={statusFilter || 'all'}
@@ -231,12 +229,12 @@ export default function MemberRequestsPage() {
         skeleton={<ListSkeleton rows={4} />}
         empty={
           <EmptyState
-            icon={MessageSquarePlus}
-            title={hasFilter ? 'Belum ada thread yang cocok' : 'Belum ada request yang dikirim'}
+            icon={Sparkles}
+            title={hasFilter ? 'Belum ada pengajuan yang cocok' : 'Belum ada permintaan konten'}
             description={
               hasFilter
-                ? 'Coba ubah filter kategori atau status untuk melihat thread lain.'
-                : 'Yuk mulai obrolan pertamamu dengan menekan tombol Buat Request Baru.'
+                ? 'Ubah filter jenis konten atau status untuk melihat pengajuan lain.'
+                : 'Klik tombol Ajukan Konten untuk mengusulkan prestasi, galeri, atau kegiatan baru.'
             }
             action={
               hasFilter ? (
@@ -244,7 +242,7 @@ export default function MemberRequestsPage() {
                   type="button"
                   variant="outline"
                   onClick={() => {
-                    setCategoryFilter('');
+                    setTypeFilter('');
                     setStatusFilter('');
                   }}
                 >
@@ -253,7 +251,7 @@ export default function MemberRequestsPage() {
               ) : (
                 <Button type="button" onClick={openCreate}>
                   <Plus aria-hidden="true" />
-                  Buat Request Baru
+                  Ajukan Konten
                 </Button>
               )
             }
@@ -261,40 +259,35 @@ export default function MemberRequestsPage() {
         }
       >
         <div className="grid gap-3">
-          {list.data.map((thread) => (
+          {list.data.map((item) => (
             <article
-              key={thread.id}
+              key={item.id}
               className="surface-card flex flex-col gap-3 rounded-2xl p-4 transition-colors duration-150 hover:border-primary/40 sm:flex-row sm:items-center sm:justify-between"
             >
               <div className="min-w-0 flex-1 space-y-1.5">
                 <div className="flex flex-wrap items-center gap-2">
                   <Badge variant="outline" className="font-mono tabular-nums">
-                    #{thread.id}
+                    #{item.id}
                   </Badge>
-                  <Badge variant="secondary">{MEMBER_CATEGORY_LABELS[thread.category]}</Badge>
-                  {thread.category === 'content' && thread.metadata?.contentType ? (
-                    <Badge variant="outline">
-                      {MEMBER_CONTENT_TYPE_LABELS[thread.metadata.contentType]}
-                    </Badge>
-                  ) : null}
-                  <Badge variant={statusBadgeVariant(thread.status)}>
-                    {MEMBER_STATUS_LABELS[thread.status]}
+                  <Badge variant="secondary">{MEMBER_CONTENT_TYPE_LABELS[item.contentType]}</Badge>
+                  <Badge variant={statusBadgeVariant(item.status)}>
+                    {MEMBER_STATUS_LABELS[item.status]}
                   </Badge>
                 </div>
 
                 <h2 className="truncate text-sm font-bold text-foreground sm:text-base">
-                  {thread.title}
+                  {item.title}
                 </h2>
                 <p className="line-clamp-2 text-xs leading-relaxed text-muted-foreground sm:text-sm">
-                  {thread.description}
+                  {item.description}
                 </p>
 
                 <div className="flex flex-wrap items-center gap-4 pt-1 text-xs text-muted-foreground">
                   <span className="inline-flex items-center gap-1 font-mono tabular-nums">
                     <MessageSquare className="size-3.5" aria-hidden="true" />
-                    {thread.messageCount} balasan
+                    {item.messageCount} balasan
                   </span>
-                  <span>Diperbarui {formatEpochTimestamp(thread.updatedAt, 'id-ID')}</span>
+                  <span>Diperbarui {formatEpochTimestamp(item.updatedAt, 'id-ID')}</span>
                 </div>
               </div>
 
@@ -303,7 +296,7 @@ export default function MemberRequestsPage() {
                   type="button"
                   size="sm"
                   className="rounded-xl"
-                  onClick={() => setActiveThreadId(thread.id)}
+                  onClick={() => setActiveThreadId(item.id)}
                 >
                   <MessageSquare className="size-3.5" aria-hidden="true" />
                   <span>Buka Diskusi</span>
@@ -313,8 +306,8 @@ export default function MemberRequestsPage() {
                   variant="outline"
                   size="icon-sm"
                   className="rounded-xl"
-                  aria-label={`Ubah ${thread.title}`}
-                  onClick={() => openEdit(thread)}
+                  aria-label={`Ubah ${item.title}`}
+                  onClick={() => openEdit(item)}
                 >
                   <Pencil className="size-3.5" aria-hidden="true" />
                 </Button>
@@ -323,8 +316,8 @@ export default function MemberRequestsPage() {
                   variant="outline"
                   size="icon-sm"
                   className="rounded-xl text-destructive hover:text-destructive"
-                  aria-label={`Hapus ${thread.title}`}
-                  onClick={() => setDeleting(thread)}
+                  aria-label={`Hapus ${item.title}`}
+                  onClick={() => setDeleting(item)}
                 >
                   <Trash2 className="size-3.5" aria-hidden="true" />
                 </Button>
@@ -341,20 +334,21 @@ export default function MemberRequestsPage() {
         />
       </ListState>
 
-      <RequestFormDialog
+      <ContentRequestFormDialog
         open={formOpen}
         onOpenChange={setFormOpen}
         editing={editing}
         mode="member"
         saving={saving}
-        onDelete={(thread) => {
+        onDelete={(item) => {
           setFormOpen(false);
-          setDeleting(thread);
+          setDeleting(item);
         }}
         onSubmit={handleSubmitForm}
       />
 
-      <RequestThreadDialog
+      <ThreadConversationDialog
+        domain="content-request"
         threadId={activeThreadId}
         open={activeThreadId !== null}
         onOpenChange={(nextOpen) => {
@@ -372,7 +366,7 @@ export default function MemberRequestsPage() {
         onOpenChange={(nextOpen) => {
           if (!nextOpen) setDeleting(null);
         }}
-        title="Hapus Request"
+        title="Hapus Permintaan Konten"
         description={
           <>
             Yakin ingin menghapus <strong>{deleting?.title}</strong>? Semua balasan di dalamnya akan

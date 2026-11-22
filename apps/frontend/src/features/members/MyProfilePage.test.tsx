@@ -130,4 +130,34 @@ describe('MyProfilePage and EditProfilePage', () => {
 
     expect(await screen.findByText('Halaman Profilku')).toBeInTheDocument();
   });
+
+  it('keeps dateOfBirth hidden and omits it from updateMe payload on save', async () => {
+    const user = userEvent.setup();
+    vi.spyOn(membersApi, 'get').mockResolvedValue({
+      data: { ...MEMBER_FIXTURE, dateOfBirth: '2007-05-14' },
+    });
+    const updateSpy = vi.spyOn(membersApi, 'updateMe').mockResolvedValue({
+      data: { ...MEMBER_FIXTURE, dateOfBirth: '2007-05-14' },
+    });
+
+    render(
+      <MemoryRouter initialEntries={['/my-profile/edit']}>
+        <Routes>
+          <Route path="/my-profile" element={<div>Halaman Profilku</div>} />
+          <Route path="/my-profile/edit" element={<EditProfilePage />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    expect(await screen.findByDisplayValue('Baruna Fandhika')).toBeInTheDocument();
+    expect(screen.queryByLabelText(/tanggal lahir/i)).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: /simpan & lihat kartu/i }));
+
+    await waitFor(() => {
+      expect(updateSpy).toHaveBeenCalledTimes(1);
+    });
+    const submittedPayload = updateSpy.mock.calls[0]?.[0] as Record<string, unknown>;
+    expect(submittedPayload).not.toHaveProperty('dateOfBirth');
+  });
 });

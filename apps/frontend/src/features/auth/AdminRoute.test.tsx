@@ -1,5 +1,5 @@
-import { describe, expect, it, vi } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { cleanup, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router';
 import { AdminRoute } from '@/features/auth/AdminRoute';
 import { AuthProvider } from '@/features/auth/AuthProvider';
@@ -19,16 +19,45 @@ vi.mock('@/features/auth/useAuth', async (importOriginal) => {
 });
 
 describe('AdminRoute', () => {
-  it('renders children for admin users', () => {
+  afterEach(() => {
+    cleanup();
+  });
+
+  it('renders children for admin users without breadcrumb on /admin', () => {
     (useAuth as any).mockReturnValue({ user: { isAdmin: true, isWhitelisted: true }, loading: false });
     render(
-      <MemoryRouter>
+      <MemoryRouter initialEntries={['/admin']}>
         <AdminRoute>
           <div>admin content</div>
         </AdminRoute>
       </MemoryRouter>,
     );
     expect(screen.getByText('admin content')).toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: /back to admin hub/i })).not.toBeInTheDocument();
+  });
+
+  it('renders Back to Admin Hub breadcrumb on admin sub-routes', () => {
+    (useAuth as any).mockReturnValue({ user: { isAdmin: true, isWhitelisted: true }, loading: false });
+    render(
+      <MemoryRouter initialEntries={['/programs']}>
+        <AdminRoute>
+          <div>programs page</div>
+        </AdminRoute>
+      </MemoryRouter>,
+    );
+    const backLink = screen.getByRole('link', { name: /back to admin hub/i });
+    expect(backLink).toHaveAttribute('href', '/admin');
+    expect(screen.getByRole('navigation', { name: 'Admin navigation' })).toContainElement(backLink);
+
+    cleanup();
+    render(
+      <MemoryRouter initialEntries={['/admin/requests']}>
+        <AdminRoute>
+          <div>requests inbox</div>
+        </AdminRoute>
+      </MemoryRouter>,
+    );
+    expect(screen.getByRole('link', { name: /back to admin hub/i })).toHaveAttribute('href', '/admin');
   });
 
   it('redirects non-admin users', () => {
