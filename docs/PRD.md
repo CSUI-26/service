@@ -32,15 +32,15 @@ Streamline the CSUI Zenith dashboard navigation, eliminate duplicated views, dec
 ### 2.2 Split Aspirasi & Request into Two Dedicated Domains (`@zenith/shared`, `@zenith/backend`, `@zenith/frontend`)
 1. **Database Schema (`apps/backend/src/db/schema.ts` & SQL Migration):**
    - Replace `request_threads` and `request_messages` with four dedicated tables:
-     - `content_requests`: `id` (`serial` PK), `author_npm` (FK -> `members.npm` `ON DELETE CASCADE`), `content_type` (`text` NOT NULL: `'achievement' | 'gallery' | 'activity' | 'other'`), `title`, `description`, `status` (`'open' | 'in_progress' | 'resolved' | 'closed'`), `image` (`jsonb` nullable), `metadata` (`jsonb` NOT NULL default `'{}'`: `{ externalUrl?: string; year?: number; teamName?: string }`), `created_at`, `updated_at`.
+     - `content_requests`: `id` (`serial` PK), `author_npm` (FK -> `members.npm` `ON DELETE CASCADE`), `content_type` (`text` NOT NULL: `'achievement' | 'gallery' | 'activity' | 'other'`), `title`, `description`, `status` (`'open' | 'in_progress' | 'resolved' | 'closed'`), `image` (`jsonb` nullable), `created_at`, `updated_at` (migration `0006_simplify_content_requests.sql` drops the unused `metadata` column).
      - `content_request_messages`: `id` (`serial` PK), `request_id` (FK -> `content_requests.id` `ON DELETE CASCADE`), `author_npm` (FK -> `members.npm` `ON DELETE CASCADE`), `author_role` (`'user' | 'admin'`), `body`, `image` (`jsonb` nullable), `created_at`, `updated_at`.
      - `feedback_threads`: `id` (`serial` PK), `author_npm` (FK -> `members.npm` `ON DELETE CASCADE`), `category` (`text` NOT NULL: `'feedback' | 'help' | 'other'`), `title`, `description`, `status` (`'open' | 'in_progress' | 'resolved' | 'closed'`), `image` (`jsonb` nullable), `external_url` (`text` nullable), `created_at`, `updated_at`.
      - `feedback_messages`: `id` (`serial` PK), `thread_id` (FK -> `feedback_threads.id` `ON DELETE CASCADE`), `author_npm` (FK -> `members.npm` `ON DELETE CASCADE`), `author_role` (`'user' | 'admin'`), `body`, `image` (`jsonb` nullable), `created_at`, `updated_at`.
-   - **Data Migration (`0005_split_requests_and_member_dob.sql`):**
+   - **Data Migration (`0005_split_requests_and_member_dob.sql` & `0006_simplify_content_requests.sql`):**
      - Copy existing `request_threads` where `category = 'content'` into `content_requests` (preserving `id`, extracting `metadata->>'contentType'` defaulting to `'other'`), and copy their child `request_messages` into `content_request_messages`.
      - Copy existing `request_threads` where `category IN ('feedback', 'help', 'other')` into `feedback_threads` (preserving `id`, extracting `metadata->>'externalUrl'` into `external_url`), and copy their child `request_messages` into `feedback_messages`.
      - Reset PostgreSQL `serial` sequences (`setval`) for all four tables to `COALESCE(MAX(id), 1)`.
-     - Drop legacy `request_messages` and `request_threads` tables.
+     - Drop legacy `request_messages` and `request_threads` tables, and drop `content_requests.metadata` in `0006`.
 2. **REST API Endpoints (`apps/backend/src/routes/`):**
    - Remove legacy `/api/v1/requests*` routes and repository.
    - Add `content-requests.ts` and `feedback.ts` routes, both protected by `blockUnauthorized()` + `requireWhitelisted()`, returning `Cache-Control: private, no-store`:
@@ -53,10 +53,10 @@ Streamline the CSUI Zenith dashboard navigation, eliminate duplicated views, dec
      - Cross-thread message ID validation (`404` on mismatch).
      - Batch author & message-count hydration via `inArray` (no N+1 queries).
    - Keep `POST /api/v1/upload/request` shared for attachments on both content requests and feedback threads.
-3. **Link Drive (`externalUrl`) Rule:**
-   - **Achievement Content Requests (`contentType === 'achievement'`):** Remove/hide the `Link Drive / Bukti` input in the content request form and omit `metadata.externalUrl` on create/update when `contentType === 'achievement'`.
-   - **Gallery / Activity / Other Content Requests & Feedback/Help:** Keep `Link Drive / Link Referensi (Opsional)` available.
-   - **Backward Compatibility:** Keep `metadata.externalUrl` optional in `ContentRequestMetadataSchema` and continue rendering any legacy saved `externalUrl` in the thread detail view.
+3. **Simplified Content Request Form & Dynamic Detail Konten Instructions:**
+   - Remove `teamName`, `year`, and separate `externalUrl` / `Link Drive` inputs from the Content Requests form; keep only `contentType`, `title`, `description` (`Detail Konten`), and `image` (`Lampiran Foto`).
+   - Display dynamic per-`contentType` instructions and placeholders directly on `Detail Konten` (guiding members when to attach photos or include Google Drive links in `Detail Konten` for `achievement`, `gallery`, `activity`, and `other`).
+   - Keep optional `externalUrl` (`Link Referensi`) on Feedback & Help threads.
 4. **Member & Admin Frontend UX:**
    - **Member Pages (Bahasa Indonesia, `.surface-card` showcase style):**
      - `/content-requests` (`ContentRequestsPage.tsx`): filter by `contentType` (`achievement`, `gallery`, `activity`, `other`) and `status`; private thread dialog & form tailored for content submissions.

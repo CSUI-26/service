@@ -45,10 +45,6 @@ const CONTENT_SUMMARY: ContentRequestSummary = {
   description: 'Tim ZenithSec meraih juara 2 bidang Keamanan Siber.',
   status: 'open',
   image: null,
-  metadata: {
-    year: 2026,
-    teamName: 'ZenithSec',
-  },
   messageCount: 1,
   createdAt: 1796000000,
   updatedAt: 1796000500,
@@ -154,7 +150,7 @@ describe('ContentRequestsPage, FeedbackPage & AdminRequestsPage', () => {
     cleanup();
   });
 
-  it('hides Link Drive on achievement content requests, shows it on gallery, and omits externalUrl on achievement submit', async () => {
+  it('renders simplified ContentRequestFormDialog with dynamic per-type Detail Konten instructions and no metadata fields', async () => {
     const user = userEvent.setup();
     const apiSpy = vi.spyOn(apiModule, 'api').mockImplementation(async (path, init) => {
       if (init?.method === 'POST' && path === '/content-requests') {
@@ -181,24 +177,37 @@ describe('ContentRequestsPage, FeedbackPage & AdminRequestsPage', () => {
     await user.click(screen.getByRole('button', { name: 'Ajukan Konten' }));
     expect(await screen.findByRole('dialog')).toBeInTheDocument();
 
-    // Default contentType is 'achievement': Link Drive must NOT be rendered
+    // Tahun, Nama Tim, and separate Link Drive inputs must not be rendered
+    expect(screen.queryByLabelText(/nama tim/i)).not.toBeInTheDocument();
+    expect(screen.queryByLabelText(/tahun/i)).not.toBeInTheDocument();
     expect(screen.queryByLabelText(/link drive/i)).not.toBeInTheDocument();
 
-    // Switch to 'Galeri': Link Drive MUST appear
+    // Default Achievement instruction on Detail Konten
+    expect(screen.getByText(/Petunjuk Achievement:/i)).toBeInTheDocument();
+    expect(screen.getByText(/foto tambahan dan sertifikat/i)).toBeInTheDocument();
+
+    // Switch to Galeri -> instruction updates for Gallery
     await user.click(screen.getByRole('combobox', { name: 'Jenis Konten' }));
     await user.click(await screen.findByRole('option', { name: 'Galeri' }));
-    expect(screen.getByLabelText(/link drive/i)).toBeInTheDocument();
+    expect(screen.getByText(/Petunjuk Galeri:/i)).toBeInTheDocument();
+    expect(screen.getByText(/link folder Google Drive di Detail Konten/i)).toBeInTheDocument();
 
-    // Switch back to 'Achievement' and submit
+    // Switch to Kegiatan -> instruction updates for Activity
+    await user.click(screen.getByRole('combobox', { name: 'Jenis Konten' }));
+    await user.click(await screen.findByRole('option', { name: 'Kegiatan' }));
+    expect(screen.getByText(/Petunjuk Kegiatan:/i)).toBeInTheDocument();
+
+    // Switch back to Achievement and submit clean payload
     await user.click(screen.getByRole('combobox', { name: 'Jenis Konten' }));
     await user.click(await screen.findByRole('option', { name: 'Achievement' }));
-    expect(screen.queryByLabelText(/link drive/i)).not.toBeInTheDocument();
 
     fireEvent.change(screen.getByLabelText('Judul Konten'), {
       target: { value: 'Juara 1 Compfest 2026' },
     });
     fireEvent.change(screen.getByLabelText('Detail Konten'), {
-      target: { value: 'Tim meraih juara 1 kategori CTF.' },
+      target: {
+        value: 'Tim meraih juara 1 CTF 2026. Link Drive: https://drive.google.com/ctf',
+      },
     });
     await user.click(screen.getByRole('button', { name: 'Kirim Permintaan' }));
 
@@ -212,8 +221,12 @@ describe('ContentRequestsPage, FeedbackPage & AdminRequestsPage', () => {
       ([p, init]) => p === '/content-requests' && init?.method === 'POST',
     );
     const body = JSON.parse(String(postCall?.[1]?.body));
-    expect(body.contentType).toBe('achievement');
-    expect(body.metadata).not.toHaveProperty('externalUrl');
+    expect(body).toEqual({
+      contentType: 'achievement',
+      title: 'Juara 1 Compfest 2026',
+      description: 'Tim meraih juara 1 CTF 2026. Link Drive: https://drive.google.com/ctf',
+      image: null,
+    });
   });
 
   it('renders FeedbackPage, filters categories, and creates a thread via /feedback', async () => {

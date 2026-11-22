@@ -58,11 +58,9 @@ describe('Member dateOfBirth & Split Request/Feedback schemas', () => {
 
     const created = ContentRequestCreateSchema.parse({
       title: 'Juara 2 Gemastik Keamanan Siber',
-      description: 'Tim kami meraih juara 2 Gemastik.',
-      metadata: { year: 2026, teamName: 'ZenithSec' },
+      description: 'Tim kami meraih juara 2 Gemastik. Link Drive: https://drive.google.com/demo',
     });
     expect(created.contentType).toBe('achievement');
-    expect(created.metadata.teamName).toBe('ZenithSec');
 
     expect(
       ContentRequestCreateSchema.safeParse({
@@ -134,11 +132,11 @@ describe('Member dateOfBirth & Split Request/Feedback schemas', () => {
         'description',
         'status',
         'image',
-        'metadata',
         'createdAt',
         'updatedAt',
       ]),
     );
+    expect(contentCols).not.toHaveProperty('metadata');
     expect(contentCols.contentType.name).toBe('content_type');
 
     const contentMsgCols = getTableColumns(contentRequestMessages);

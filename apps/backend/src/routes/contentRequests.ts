@@ -56,10 +56,6 @@ export async function contentRequestRoutes(fastify: FastifyInstance) {
   fastify.post('/api/v1/content-requests', { preHandler }, async (req, reply) => {
     reply.header('Cache-Control', 'private, no-store');
     const body = ContentRequestCreateSchema.parse(req.body);
-    if (body.contentType === 'achievement' && body.metadata?.externalUrl !== undefined) {
-      const { externalUrl: _ignored, ...rest } = body.metadata;
-      body.metadata = rest;
-    }
     const created = await repo.createContentRequest(req.user!.npm!, body);
     return reply.code(201).send({ data: created });
   });
@@ -94,12 +90,6 @@ export async function contentRequestRoutes(fastify: FastifyInstance) {
     const body = ContentRequestUpdateSchema.parse(req.body);
     if (!req.user?.isAdmin && body.status !== undefined && body.status !== 'closed') {
       return reply.code(403).send({ error: 'Forbidden: members can only close their own threads' });
-    }
-
-    const effectiveType = body.contentType ?? item.contentType;
-    if (effectiveType === 'achievement' && body.metadata?.externalUrl !== undefined) {
-      const { externalUrl: _ignored, ...rest } = body.metadata;
-      body.metadata = rest;
     }
 
     const updated = await repo.updateContentRequest(id, body);

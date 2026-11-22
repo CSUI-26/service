@@ -43,6 +43,13 @@
       "when": 1796800000000,
       "tag": "0005_split_requests_and_member_dob",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1797000000000,
+      "tag": "0006_simplify_content_requests",
+      "breakpoints": true
     }
   ]
 }

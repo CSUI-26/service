@@ -107,7 +107,7 @@ describe('Split Content Requests, Feedback & Admin Stats API integration', () =>
     expect(nonWhitelistedUpload.statusCode).toBe(403);
   });
 
-  it('strips externalUrl on achievement content requests while preserving it on gallery, and enforces thread isolation', async () => {
+  it('supports content request CRUD, privacy isolation, and message lifecycle on /api/v1/content-requests', async () => {
     const userOneToken = signToken({ nama: memberOne.name, npm: memberOne.npm });
     const userTwoToken = signToken({ nama: memberTwo.name, npm: memberTwo.npm });
 
@@ -118,20 +118,15 @@ describe('Split Content Requests, Feedback & Admin Stats API integration', () =>
       payload: {
         contentType: 'achievement',
         title: 'Juara 2 Gemastik 2026',
-        description: 'Tim kami meraih juara 2 kategori Keamanan Siber.',
-        metadata: {
-          year: 2026,
-          teamName: 'ZenithSec',
-          externalUrl: 'https://drive.google.com/should-be-stripped',
-        },
+        description: 'Tim ZenithSec meraih juara 2. Drive: https://drive.google.com/example',
       },
     });
     expect(achievementRes.statusCode).toBe(201);
     expect(achievementRes.headers['cache-control']).toBe('private, no-store');
     const achievementId: number = achievementRes.json().data.id;
     createdContentIds.push(achievementId);
-    expect(achievementRes.json().data.metadata.externalUrl).toBeUndefined();
-    expect(achievementRes.json().data.metadata.teamName).toBe('ZenithSec');
+    expect(achievementRes.json().data.contentType).toBe('achievement');
+    expect(achievementRes.json().data).not.toHaveProperty('metadata');
 
     const galleryRes = await app.inject({
       method: 'POST',
@@ -140,16 +135,13 @@ describe('Split Content Requests, Feedback & Admin Stats API integration', () =>
       payload: {
         contentType: 'gallery',
         title: 'Foto Makrab Zenith',
-        description: 'Dokumentasi kegiatan makrab.',
-        metadata: {
-          externalUrl: 'https://drive.google.com/gallery-folder',
-        },
+        description: 'Dokumentasi kegiatan makrab: https://drive.google.com/gallery-folder',
       },
     });
     expect(galleryRes.statusCode).toBe(201);
     const galleryId: number = galleryRes.json().data.id;
     createdContentIds.push(galleryId);
-    expect(galleryRes.json().data.metadata.externalUrl).toBe('https://drive.google.com/gallery-folder');
+    expect(galleryRes.json().data.contentType).toBe('gallery');
 
     // Privacy isolation for memberTwo
     const listTwo = await app.inject({

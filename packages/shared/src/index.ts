@@ -316,12 +316,6 @@ const ThreadMessageUpdateSchema = z
 // Content Request schemas
 export const ContentRequestTypeSchema = z.enum(['achievement', 'gallery', 'activity', 'other']);
 
-export const ContentRequestMetadataSchema = z.object({
-  externalUrl: z.string().url().optional().or(z.literal('')),
-  year: z.number().int().min(1990).max(2100).optional(),
-  teamName: z.string().optional(),
-});
-
 export const ContentRequestMessageSchema = z.object({
   id: z.number().int().positive(),
   requestId: z.number().int().positive(),
@@ -346,7 +340,6 @@ export const ContentRequestSummarySchema = z.object({
   description: z.string().min(1, 'Description required'),
   status: RequestStatusSchema,
   image: ImageFieldSchema.nullable().optional(),
-  metadata: ContentRequestMetadataSchema,
   messageCount: z.number().int().min(0),
   createdAt: z.number().int(),
   updatedAt: z.number().int(),
@@ -361,7 +354,6 @@ export const ContentRequestCreateSchema = z.object({
   title: z.string().trim().min(1, 'Title required').max(200),
   description: z.string().trim().min(1, 'Description required').max(5000),
   image: ImageFieldSchema.nullable().optional(),
-  metadata: ContentRequestMetadataSchema.optional().default({}),
 });
 
 export const ContentRequestUpdateSchema = z
@@ -371,7 +363,6 @@ export const ContentRequestUpdateSchema = z
     description: z.string().trim().min(1, 'Description required').max(5000),
     status: RequestStatusSchema,
     image: ImageFieldSchema.nullable(),
-    metadata: ContentRequestMetadataSchema,
   })
   .partial();
 
@@ -476,7 +467,6 @@ export type ActivityUpdate = z.infer<typeof ActivityUpdateSchema>;
 export type RequestStatus = z.infer<typeof RequestStatusSchema>;
 export type RequestAuthor = z.infer<typeof RequestAuthorSchema>;
 export type ContentRequestType = z.infer<typeof ContentRequestTypeSchema>;
-export type ContentRequestMetadata = z.infer<typeof ContentRequestMetadataSchema>;
 export type ContentRequestMessage = z.infer<typeof ContentRequestMessageSchema>;
 export type ContentRequestMessageCreate = z.infer<typeof ContentRequestMessageCreateSchema>;
 export type ContentRequestMessageUpdate = z.infer<typeof ContentRequestMessageUpdateSchema>;

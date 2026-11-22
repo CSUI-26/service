@@ -75,8 +75,6 @@ interface ThreadDetailView {
   description: string;
   status: RequestStatus;
   image?: ImageField | null;
-  teamName?: string;
-  year?: number;
   externalUrl?: string | null;
   messageCount: number;
   createdAt: number;
@@ -102,9 +100,6 @@ function toView(
       description: req.description,
       status: req.status,
       image: req.image,
-      teamName: req.metadata?.teamName,
-      year: req.metadata?.year,
-      externalUrl: req.metadata?.externalUrl,
       messageCount: req.messageCount,
       createdAt: req.createdAt,
       updatedAt: req.updatedAt,
@@ -433,33 +428,17 @@ function ThreadConversationDialogInner(props: ThreadConversationDialogProps) {
                     {thread.description}
                   </p>
 
-                  {thread.teamName || thread.year || thread.externalUrl ? (
+                  {thread.externalUrl ? (
                     <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 border-t border-border/60 pt-2.5 text-xs text-muted-foreground">
-                      {thread.teamName ? (
-                        <span>
-                          {isMember ? 'Tim: ' : 'Team: '}
-                          <strong className="text-foreground">{thread.teamName}</strong>
-                        </span>
-                      ) : null}
-                      {thread.year ? (
-                        <span>
-                          {isMember ? 'Tahun: ' : 'Year: '}
-                          <span className="font-mono tabular-nums text-foreground">
-                            {thread.year}
-                          </span>
-                        </span>
-                      ) : null}
-                      {thread.externalUrl ? (
-                        <a
-                          href={thread.externalUrl}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="inline-flex items-center gap-1 font-medium text-primary hover:underline"
-                        >
-                          <ExternalLink className="size-3" aria-hidden="true" />
-                          <span>{isMember ? 'Lihat Referensi' : 'Reference Link'}</span>
-                        </a>
-                      ) : null}
+                      <a
+                        href={thread.externalUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="inline-flex items-center gap-1 font-medium text-primary hover:underline"
+                      >
+                        <ExternalLink className="size-3" aria-hidden="true" />
+                        <span>{isMember ? 'Lihat Referensi' : 'Reference Link'}</span>
+                      </a>
                     </div>
                   ) : null}
 

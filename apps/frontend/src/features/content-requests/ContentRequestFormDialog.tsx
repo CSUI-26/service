@@ -2,7 +2,6 @@ import { useState } from 'react';
 import { Loader2, Trash2, X } from 'lucide-react';
 import type {
   ContentRequestCreate,
-  ContentRequestMetadata,
   ContentRequestSummary,
   ContentRequestType,
 } from '@zenith/shared';
@@ -23,6 +22,61 @@ import {
   ADMIN_CONTENT_TYPE_LABELS,
   MEMBER_CONTENT_TYPE_LABELS,
 } from '@/features/content-requests/api';
+
+const MEMBER_TYPE_INSTRUCTIONS: Record<
+  ContentRequestType,
+  { guide: string; placeholder: string }
+> = {
+  achievement: {
+    guide:
+      'Tuliskan nama lomba, peringkat, nama tim dan anggota, serta tahun. Lampirkan satu foto utama atau cantumkan link Google Drive di Detail Konten jika ada foto tambahan dan sertifikat.',
+    placeholder:
+      'Contoh: Juara 2 Gemastik Keamanan Siber 2026. Tim ZenithSec (Budi, Ani, Citra). Link Drive foto/sertifikat (opsional): https://drive.google.com/...',
+  },
+  gallery: {
+    guide:
+      'Jelaskan nama momen, tanggal, dan keterangan singkat foto. Untuk mengirim lebih dari satu foto atau resolusi asli, cantumkan link folder Google Drive di Detail Konten.',
+    placeholder:
+      'Contoh: Dokumentasi Makrab Zenith 2026 (12 Okt 2026). Link folder Google Drive: https://drive.google.com/...',
+  },
+  activity: {
+    guide:
+      'Tuliskan nama kegiatan, tanggal pelaksanaan, dan ringkasan acara. Sertakan link Google Drive dokumentasi di Detail Konten bila tersedia.',
+    placeholder:
+      'Contoh: Open House CSUI 2026 pada 20 Nov 2026. Link dokumentasi (opsional): https://drive.google.com/...',
+  },
+  other: {
+    guide:
+      'Jelaskan konten atau pembaruan yang diajukan secara lengkap, dan cantumkan link Google Drive atau referensi di Detail Konten bila diperlukan.',
+    placeholder: 'Tuliskan detail konten dan link referensi atau Google Drive (jika ada)...',
+  },
+};
+
+const ADMIN_TYPE_INSTRUCTIONS: Record<
+  ContentRequestType,
+  { guide: string; placeholder: string }
+> = {
+  achievement: {
+    guide:
+      'Include competition name, award or rank, team and member names, year, and an optional Google Drive link for extra photos or certificates.',
+    placeholder: 'e.g., 2nd Place Gemastik Cyber Security 2026, Team ZenithSec. Drive link: ...',
+  },
+  gallery: {
+    guide:
+      'Describe the event or moment, date, and optionally include a Google Drive folder link for full-resolution or multi-photo uploads.',
+    placeholder: 'e.g., Cohort gathering photos (Oct 2026). Drive folder link: ...',
+  },
+  activity: {
+    guide:
+      'Include the activity title, date, short recap, and an optional Google Drive link for supporting media.',
+    placeholder: 'e.g., CSUI Open House 2026 recap. Drive link: ...',
+  },
+  other: {
+    guide:
+      'Provide full context for the requested content update and include any Google Drive or reference links.',
+    placeholder: 'Describe the requested content and any reference links...',
+  },
+};
 
 interface ContentRequestFormDialogProps {
   open: boolean;
@@ -45,42 +99,30 @@ function ContentRequestFormDialogInner({
 }: ContentRequestFormDialogProps) {
   const isMember = mode === 'member';
   const contentTypeLabels = isMember ? MEMBER_CONTENT_TYPE_LABELS : ADMIN_CONTENT_TYPE_LABELS;
+  const typeInstruction = (isMember ? MEMBER_TYPE_INSTRUCTIONS : ADMIN_TYPE_INSTRUCTIONS)[
+    editing?.contentType ?? 'achievement'
+  ];
 
   const [contentType, setContentType] = useState<ContentRequestType>(
     editing?.contentType ?? 'achievement',
   );
   const [title, setTitle] = useState(editing?.title ?? '');
   const [description, setDescription] = useState(editing?.description ?? '');
-  const [externalUrl, setExternalUrl] = useState(editing?.metadata?.externalUrl ?? '');
-  const [year, setYear] = useState(editing?.metadata?.year ? String(editing.metadata.year) : '');
-  const [teamName, setTeamName] = useState(editing?.metadata?.teamName ?? '');
   const [image, setImage] = useState<ImageUploadValue>(editing?.image ?? { url: '' });
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
 
-  const showExternalUrl = contentType !== 'achievement';
+  const activeInstruction =
+    (isMember ? MEMBER_TYPE_INSTRUCTIONS : ADMIN_TYPE_INSTRUCTIONS)[contentType] ??
+    typeInstruction;
 
   const handleFormSubmit = (event: React.FormEvent) => {
     event.preventDefault();
-    const metadata: ContentRequestMetadata = {};
-    if (year.trim()) {
-      const parsedYear = Number(year.trim());
-      if (Number.isInteger(parsedYear)) {
-        metadata.year = parsedYear;
-      }
-    }
-    if (teamName.trim()) {
-      metadata.teamName = teamName.trim();
-    }
-    if (showExternalUrl && externalUrl.trim()) {
-      metadata.externalUrl = externalUrl.trim();
-    }
 
     const candidate = {
       contentType,
       title: title.trim(),
       description: description.trim(),
       image: image.url.trim() ? image : null,
-      metadata,
     };
 
     const parsed = ContentRequestCreateSchema.safeParse(candidate);
@@ -201,52 +243,27 @@ function ContentRequestFormDialogInner({
           />
         </div>
 
-        <div className={showExternalUrl ? 'grid gap-4 sm:grid-cols-3' : 'grid gap-4 sm:grid-cols-2'}>
-          <TextField
-            id="content-request-team"
-            label={isMember ? 'Nama Tim (Opsional)' : 'Team Name (Optional)'}
-            placeholder="ZenithSec"
-            value={teamName}
-            onChange={(e) => setTeamName(e.target.value)}
-          />
-          <TextField
-            id="content-request-year"
-            label={isMember ? 'Tahun (Opsional)' : 'Year (Optional)'}
-            type="number"
-            min={1990}
-            max={2100}
-            className="font-mono tabular-nums"
-            placeholder="2026"
-            value={year}
-            onChange={(e) => setYear(e.target.value)}
-            error={fieldErrors['metadata.year']}
-          />
-          {showExternalUrl ? (
-            <TextField
-              id="content-request-external-url"
-              label={isMember ? 'Link Drive / Bukti (Opsional)' : 'Reference URL (Optional)'}
-              placeholder="https://drive.google.com/..."
-              value={externalUrl}
-              onChange={(e) => setExternalUrl(e.target.value)}
-              error={fieldErrors['metadata.externalUrl']}
-            />
-          ) : null}
-        </div>
+        <div className="space-y-2">
+          <div className="rounded-lg border border-primary/25 bg-primary/5 px-3.5 py-2.5 text-xs leading-relaxed text-muted-foreground">
+            <span className="font-semibold text-foreground">
+              {isMember
+                ? `Petunjuk ${contentTypeLabels[contentType]}: `
+                : `${contentTypeLabels[contentType]} instructions: `}
+            </span>
+            {activeInstruction.guide}
+          </div>
 
-        <TextAreaField
-          id="content-request-description"
-          label={isMember ? 'Detail Konten' : 'Description'}
-          placeholder={
-            isMember
-              ? 'Ceritakan detail prestasi, anggota tim, atau keterangan konten yang ingin ditampilkan...'
-              : 'Describe the requested achievement, gallery photo, or activity...'
-          }
-          rows={4}
-          value={description}
-          onChange={(e) => setDescription(e.target.value)}
-          error={fieldErrors.description}
-          required
-        />
+          <TextAreaField
+            id="content-request-description"
+            label={isMember ? 'Detail Konten' : 'Description'}
+            placeholder={activeInstruction.placeholder}
+            rows={4}
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            error={fieldErrors.description}
+            required
+          />
+        </div>
 
         <div className="space-y-2 rounded-lg border border-border bg-muted/30 p-4">
           <div className="flex items-center justify-between gap-2">

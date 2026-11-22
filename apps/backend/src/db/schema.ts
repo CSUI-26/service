@@ -1,7 +1,7 @@
 import { sql } from 'drizzle-orm';
 import { pgTable, text, serial, integer, boolean, jsonb, date, unique, index, check } from 'drizzle-orm/pg-core';
 import { relations } from 'drizzle-orm';
-import type { ContentRequestMetadata, ImageConfig } from '@zenith/shared';
+import type { ImageConfig } from '@zenith/shared';
 
 export const programs = pgTable('programs', {
   id: text('id').primaryKey(),
@@ -150,7 +150,6 @@ export const contentRequests = pgTable('content_requests', {
   description: text('description').notNull(),
   status: text('status').notNull().default('open'),
   image: jsonb('image').$type<{ url: string; config?: ImageConfig } | null>(),
-  metadata: jsonb('metadata').$type<ContentRequestMetadata>().notNull().default(sql`'{}'::jsonb`),
   createdAt: integer('created_at').notNull().default(sql`extract(epoch from now())::int`),
   updatedAt: integer('updated_at').notNull().default(sql`extract(epoch from now())::int`),
 }, (table) => ({

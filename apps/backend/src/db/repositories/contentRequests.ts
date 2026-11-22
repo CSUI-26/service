@@ -5,7 +5,6 @@ import type {
   ContentRequestMessage,
   ContentRequestMessageCreate,
   ContentRequestMessageUpdate,
-  ContentRequestMetadata,
   ContentRequestSummary,
   ContentRequestType,
   ContentRequestUpdate,
@@ -60,16 +59,6 @@ async function fetchMessageCountsMap(requestIds: number[]): Promise<Map<number, 
   return map;
 }
 
-function sanitizeContentMetadata(
-  contentType: ContentRequestType,
-  metadata: ContentRequestMetadata | undefined,
-): ContentRequestMetadata {
-  const raw = metadata ?? {};
-  if (contentType !== 'achievement') return raw;
-  const { externalUrl: _ignored, ...rest } = raw;
-  return rest;
-}
-
 function mapSummary(
   row: typeof contentRequests.$inferSelect,
   authors: Map<string, RequestAuthor>,
@@ -84,7 +73,6 @@ function mapSummary(
     description: row.description,
     status: row.status as RequestStatus,
     image: row.image ?? null,
-    metadata: row.metadata ?? {},
     messageCount: messageCounts.get(row.id) ?? 0,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
@@ -221,7 +209,6 @@ export async function createContentRequest(
       description: data.description,
       status: 'open',
       image: data.image ?? null,
-      metadata: sanitizeContentMetadata(contentType, data.metadata),
     })
     .returning();
 
@@ -233,21 +220,14 @@ export async function updateContentRequest(
   data: ContentRequestUpdate,
 ): Promise<ContentRequestDetail | undefined> {
   const existing = await db.select().from(contentRequests).where(eq(contentRequests.id, id));
-  const current = existing[0];
-  if (!current) return undefined;
+  if (!existing[0]) return undefined;
 
-  const nextContentType = (data.contentType ?? current.contentType) as ContentRequestType;
   const set: Record<string, unknown> = {};
   if (data.contentType !== undefined) set.contentType = data.contentType;
   if (data.title !== undefined) set.title = data.title;
   if (data.description !== undefined) set.description = data.description;
   if (data.status !== undefined) set.status = data.status;
   if (data.image !== undefined) set.image = data.image;
-  if (data.metadata !== undefined) {
-    set.metadata = sanitizeContentMetadata(nextContentType, data.metadata);
-  } else if (data.contentType === 'achievement' && current.contentType !== 'achievement') {
-    set.metadata = sanitizeContentMetadata('achievement', current.metadata ?? {});
-  }
 
   if (Object.keys(set).length > 0) {
     set.updatedAt = sql`extract(epoch from now())::int`;

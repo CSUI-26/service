@@ -160,11 +160,11 @@ export default function ContentRequestsPage() {
         <div className="surface-card space-y-1.5 rounded-2xl border-primary/25 p-4">
           <div className="flex items-center gap-2 text-xs font-bold text-primary">
             <Camera className="size-4 shrink-0" aria-hidden="true" />
-            <span>2. Unggah Foto Pendukung</span>
+            <span>2. Isi Detail &amp; Lampiran</span>
           </div>
           <p className="text-xs leading-relaxed text-muted-foreground">
-            Lampirkan foto terbaikmu langsung lewat form agar tim konten dapat langsung memproses
-            dan menayangkannya.
+            Ikuti petunjuk pada kolom Detail Konten sesuai jenisnya, lalu unggah foto utama atau
+            cantumkan link Google Drive jika diperlukan.
           </p>
         </div>
 
