@@ -1,11 +1,13 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { createApp } from '../app.js';
 import { signToken } from '../middleware/auth.js';
+import { ensureTestMembers } from './helpers/test-members.js';
 
 describe('API integration', () => {
   let app: any;
 
   beforeAll(async () => {
+    await ensureTestMembers();
     app = createApp();
     await app.ready();
   });

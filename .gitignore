@@ -22,4 +22,5 @@ seaweed/
 runtime/
 /data/postgres/
 /data/minio/
+data/members.json
 apps/frontend/testout*.txt

@@ -8,20 +8,19 @@ Admin dashboard and curriculum/member REST API for Fakultas Ilmu Komputer UI (CS
 - **Backend (`@zenith/backend`):** Fastify v5 + TypeScript + PostgreSQL 16 + Drizzle ORM (`postgres`) + Zod + Vitest
 - **Frontend (`@zenith/frontend`):** React 19 + React Router (`react-router`) + Vite + Tailwind CSS v4 + shadcn/ui + Vitest + Oxlint
 - **Auth:** SSO UI CAS 2.0 (`@zenith/sso-ui`) + JWT (`httpOnly` cookie `token` or `Authorization: Bearer`)
-- **Deploy:** Dual-mode same-origin `/api/v1`: Vercel (Static SPA + `api/index.ts` serverless + managed Postgres) or VPS (`docker-compose` with Nginx + Fastify + PostgreSQL 16 + MinIO)
+- **Deploy:** Same-origin `/api/v1` via Docker Compose (`gateway` Nginx + Fastify + PostgreSQL 16 + SeaweedFS S3)
 
 ## Directory Map
 
 ```text
-CSUI-ZenithService/
+CSUI26/
 ├── .github/workflows/        # CI pipeline (build, lint, test)
 ├── package.json              # Root workspace scripts & Turborepo CLI
 ├── pnpm-workspace.yaml       # Workspaces: apps/*, packages/*
 ├── tsconfig.base.json        # Shared TypeScript compiler options
 ├── turbo.json                # Pipeline caching (build, lint, test, dev)
-├── vercel.json               # Vercel build config & same-origin /api/* rewrites
-├── api/
-│   └── index.ts              # Vercel serverless entrypoint wrapping @zenith/backend
+├── docker-compose.yml        # Production stack (gateway, backend, frontend, postgres, seaweedfs)
+├── compose.dev.yml           # Local dev backing services
 ├── packages/
 │   ├── shared/               # @zenith/shared: Zod schemas, DTO types, API envelopes
 │   └── sso-ui/               # @zenith/sso-ui: CAS 2.0 client, orgMapper & org_code_details.json
@@ -34,16 +33,16 @@ CSUI-ZenithService/
 │   │       ├── config/       # Env & auth config
 │   │       ├── lib/          # Native TTL cache & image header helpers
 │   │       ├── db/
-│   │       │   ├── client.ts     # Env-configurable postgres-js pool (VPS vs. Serverless)
+│   │       │   ├── client.ts     # Env-configurable postgres-js pool
 │   │       │   ├── migrate.ts    # Programmatic Drizzle migration runner
 │   │       │   ├── schema.ts     # PostgreSQL schema & relations
 │   │       │   ├── repository.ts # Barrel re-exporting domain repositories
-│   │       │   ├── repositories/ # programs.ts, courses.ts, members.ts, achievements.ts
+│   │       │   ├── repositories/ # programs.ts, courses.ts, members.ts, achievements.ts, gallery.ts, activities.ts, contentRequests.ts, feedback.ts, adminStats.ts
 │   │       │   └── seed.ts       # Initial DB & S3 media seeder
 │   │       ├── middleware/   # JWT, whitelist, RBAC, PII serialization, auth TTL cache
-│   │       ├── routes/       # auth.ts, programs.ts, courses.ts, members.ts, achievements.ts, upload.ts
+│   │       ├── routes/       # auth.ts, programs.ts, courses.ts, members.ts, achievements.ts, gallery.ts, activities.ts, contentRequests.ts, feedback.ts, adminStats.ts, upload.ts
 │   │       ├── schemas/      # Re-exports @zenith/shared
-│   │       ├── services/     # S3 storage service
+│   │       ├── services/     # S3 storage service (SeaweedFS / AWS S3 / local fallback)
 │   │       └── __tests__/    # Vitest DB schema & API integration tests
 │   └── frontend/             # @zenith/frontend: React 19 + Vite + Tailwind v4 + shadcn/ui
 │       ├── DESIGN.md         # Visual & component rules
@@ -51,21 +50,22 @@ CSUI-ZenithService/
 │           ├── index.css     # Semantic CSS tokens, Inter & JetBrains Mono
 │           ├── app/          # Router, providers, navigation, fallback pages
 │           ├── components/   # layout/, patterns/, ui/ (shadcn/ui)
-│           ├── features/     # auth/, programs/, courses/, members/, achievements/
+│           ├── features/     # auth/, admin/, programs/, courses/, members/, achievements/, gallery/, activities/, content-requests/, feedback/, requests/
 │           ├── hooks/        # Shared React hooks
 │           └── lib/          # API client & utils
 │   └── website/              # READ-ONLY REFERENCE: Astro landing page submodule (CSUI-26/website) — DO NOT MODIFY
-├── data/                     # Seed JSON datasets (academic, members, achievements)
-└── docs/                     # PRD & implementation plan
+├── data/                     # Seed JSON datasets (academic, achievements, gallery, activities)
+├── docs/                     # REST API reference (API.md)
+└── scripts/                  # Deployment, storage bootstrap, and verification scripts
 ```
 
 ## Auth & Security Boundaries
 
-- **Session-Aware Member Reads:** `GET /api/v1/members` and `GET /api/v1/members/:npm` use `optionalAuth()` (with 30s TTL lookup cache) + `serializeMemberForViewer()`. Unauthenticated or non-whitelisted callers receive public profile fields only (`email` and `role` stripped). Valid whitelisted sessions receive the full `Member` payload.
-- **Self-Profile Edits:** `PUT /api/v1/members/me` requires `blockUnauthorized()` + `requireWhitelisted()` (live DB lookup), parses body with `MemberUpdateSchema.omit({ role: true })` (allows `email`, `programId`/`major`, and profile fields; locks `npm` and `role`), returns `409 Conflict` on duplicate `email`, and invalidates auth cache.
-- **Admin Mutations:** Program, course, achievement, and member `POST`/`PUT`/`DELETE` routes plus `PUT /api/v1/members/:npm/role` require `blockUnauthorized()` + `adminOnly()`. Admin status comes from `members.role` in PostgreSQL or immutable `ADMIN_NPM_LIST`.
+- **Session-Aware Member Reads:** `GET /api/v1/members` and `GET /api/v1/members/:npm` use `optionalAuth()` (with 30s TTL lookup cache) + `serializeMemberForViewer()`. Unauthenticated or non-whitelisted callers receive public profile fields only (`email`, `role`, and `dateOfBirth` stripped). Peer whitelisted non-admins also have `dateOfBirth` stripped; self and admins receive `dateOfBirth`.
+- **Self-Profile Edits:** `PUT /api/v1/members/me` requires `blockUnauthorized()` + `requireWhitelisted()` (live DB lookup), parses body with `MemberUpdateSchema.omit({ role: true })` (allows `email`, `programId`/`major`, `dateOfBirth`, and profile fields; locks `npm` and `role`), returns `409 Conflict` on duplicate `email`, and invalidates auth cache.
+- **Admin Mutations:** Program, course, achievement, gallery, activity, and member `POST`/`PUT`/`DELETE` routes plus `PUT /api/v1/members/:npm/role` and `GET /api/v1/admin/stats` require `blockUnauthorized()` + `adminOnly()`. Admin status comes from `members.role` in PostgreSQL or immutable `ADMIN_NPM_LIST`.
 - **Cookie Security:** `token` cookie sets `httpOnly: true`, `sameSite: 'lax'`, and `secure: true` when `NODE_ENV=production`.
-- **Frontend Route Guards (`apps/frontend/src/app/router.tsx`):** `/login`, `/auth/callback`, `/access-denied` are public; `/` redirects to `/my-profile` inside `ProtectedRoute`; `/programs`, `/courses`, `/members`, `/achievements` require `AdminRoute`.
+- **Frontend Route Guards (`apps/frontend/src/app/router.tsx`):** `/login`, `/auth/callback`, `/access-denied` are public; `/` redirects to `/my-profile` inside `ProtectedRoute`; `/my-profile`, `/my-profile/edit`, `/content-requests`, and `/feedback` are accessible to all whitelisted members; `/admin`, `/programs`, `/courses`, `/members`, `/achievements`, `/gallery`, `/activities`, and `/admin/requests` require `AdminRoute`.
 
 ## Database & Repository Conventions
 

@@ -87,7 +87,7 @@ sudo docker compose up -d --remove-orphans
 
 ## Database Migration & Seeding
 
-Run Drizzle schema migrations and seed `data/academic.json`, `data/members.json`, and `data/achievements.json` (downloads and uploads member photos to SeaweedFS S3 under `members/<uuid>.<ext>`):
+Run Drizzle schema migrations and seed `data/academic.json`, `data/achievements.json`, `data/gallery.json`, and `data/activities.json` (if you place an untracked `data/members.json` locally, member records and photos will also be seeded to PostgreSQL and SeaweedFS S3 under `members/<uuid>.<ext>`):
 
 ```bash
 sudo ./scripts/migrate-and-seed.sh

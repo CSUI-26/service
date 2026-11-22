@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { createApp } from '../app.js';
 import { signToken } from '../middleware/auth.js';
+import { ensureTestMembers } from './helpers/test-members.js';
 
 const WEBP_1X1 = Buffer.from([
   0x52, 0x49, 0x46, 0x46, 0x11, 0x00, 0x00, 0x00,
@@ -35,6 +36,7 @@ describe('Achievements & Upload API integration', () => {
   beforeAll(async () => {
     prevS3Endpoint = process.env.S3_ENDPOINT;
     delete process.env.S3_ENDPOINT;
+    await ensureTestMembers();
     app = createApp();
     await app.ready();
 

@@ -16,7 +16,7 @@
   - `httpOnly` cookie named `token` (set by `GET /api/v1/auth/callback`) **OR** `Authorization: Bearer <jwt>` header.
   - **Auth Tiers:**
     1. `Public`: No token required.
-    2. `OptionalAuth`: Token optional. Unauthenticated or non-whitelisted callers receive redacted member payloads (`email` and `role` stripped).
+    2. `OptionalAuth`: Token optional. Unauthenticated or non-whitelisted callers receive redacted member payloads (`email`, `role`, and `dateOfBirth` stripped). Peer authenticated non-admins also have `dateOfBirth` stripped; self and admins receive `dateOfBirth`.
     3. `Whitelisted`: Valid JWT + `npm` exists in `members` PostgreSQL table (`401` if unauthenticated, `403` if not whitelisted).
     4. `Admin`: Valid JWT + whitelisted + (`members.role === 'admin'` OR `npm` in `ADMIN_NPM_LIST`) (`401` / `403`).
 - **Rate Limiting:** `100` requests per `1 minute` per IP (`429 Too Many Requests`).
@@ -25,7 +25,7 @@
   - Public read endpoints (`programs`, `semesters`, `achievements`, `gallery`, `activities`) return `Vary: Cookie, Authorization` and:
     - Unauthenticated (`no Cookie/Authorization`): `Cache-Control: public, max-age=60, stale-while-revalidate=300`
     - Authenticated (`Cookie` or `Authorization` present): `Cache-Control: private, no-store`
-  - Member endpoints always return `Cache-Control: private, no-store`.
+  - Member, Content Request, Feedback, and Admin Stats endpoints always return `Cache-Control: private, no-store`.
   - Binary media endpoint (`GET /api/v1/media/*`) returns `Cache-Control: public, max-age=31536000, immutable`.
 
 ---
@@ -50,8 +50,8 @@
 | Courses | `POST /api/v1/courses` | `Admin` | Create course inside program/semester |
 | Courses | `PUT /api/v1/courses/:id` | `Admin` | Update or relocate course |
 | Courses | `DELETE /api/v1/courses/:id` | `Admin` | Delete course & prune empty semester |
-| Members | `GET /api/v1/members` | `OptionalAuth` | Search & paginate members (PII-redacted if unauthed) |
-| Members | `GET /api/v1/members/:npm` | `OptionalAuth` | Get member by 10-digit NPM (PII-redacted if unauthed) |
+| Members | `GET /api/v1/members` | `OptionalAuth` | Search & paginate members (PII-redacted by viewer role) |
+| Members | `GET /api/v1/members/:npm` | `OptionalAuth` | Get member by 10-digit NPM (PII-redacted by viewer role) |
 | Members | `PUT /api/v1/members/me` | `Whitelisted` | Self-service profile update (`npm` & `role` locked) |
 | Members | `PUT /api/v1/members/:npm/role` | `Admin` | Promote/demote member role (`403` on superadmins) |
 | Members | `POST /api/v1/members` | `Admin` | Create member |
@@ -72,11 +72,29 @@
 | Activities | `POST /api/v1/activities` | `Admin` | Create activity |
 | Activities | `PUT /api/v1/activities/:id` | `Admin` | Update activity |
 | Activities | `DELETE /api/v1/activities/:id` | `Admin` | Delete activity |
+| Content Requests | `GET /api/v1/content-requests` | `Whitelisted` | List/search content request threads (`scope=mine` or all for admins) |
+| Content Requests | `POST /api/v1/content-requests` | `Whitelisted` | Create a content request thread |
+| Content Requests | `GET /api/v1/content-requests/:id` | `Whitelisted` | Get thread detail + messages (owner or admin) |
+| Content Requests | `PUT /api/v1/content-requests/:id` | `Whitelisted` | Update thread (non-admins may only set `status: "closed"`) |
+| Content Requests | `DELETE /api/v1/content-requests/:id` | `Whitelisted` | Delete thread (owner or admin) |
+| Content Requests | `POST /api/v1/content-requests/:id/messages` | `Whitelisted` | Post reply message on a thread |
+| Content Requests | `PUT /api/v1/content-requests/:id/messages/:messageId` | `Whitelisted` | Edit reply message (author or admin) |
+| Content Requests | `DELETE /api/v1/content-requests/:id/messages/:messageId` | `Whitelisted` | Delete reply message (author or admin) |
+| Feedback | `GET /api/v1/feedback` | `Whitelisted` | List/search feedback & help threads (`scope=mine` or all for admins) |
+| Feedback | `POST /api/v1/feedback` | `Whitelisted` | Create a feedback/help thread |
+| Feedback | `GET /api/v1/feedback/:id` | `Whitelisted` | Get feedback thread detail + messages (owner or admin) |
+| Feedback | `PUT /api/v1/feedback/:id` | `Whitelisted` | Update thread (non-admins may only set `status: "closed"`) |
+| Feedback | `DELETE /api/v1/feedback/:id` | `Whitelisted` | Delete thread (owner or admin) |
+| Feedback | `POST /api/v1/feedback/:id/messages` | `Whitelisted` | Post reply message on a feedback thread |
+| Feedback | `PUT /api/v1/feedback/:id/messages/:messageId` | `Whitelisted` | Edit feedback reply (author or admin) |
+| Feedback | `DELETE /api/v1/feedback/:id/messages/:messageId` | `Whitelisted` | Delete feedback reply (author or admin) |
+| Admin Stats | `GET /api/v1/admin/stats` | `Admin` | Aggregated counts across entities & open threads |
 | Media | `POST /api/v1/upload/avatar` | `Whitelisted` | Upload member avatar (`?npm=` for admin override) |
 | Media | `POST /api/v1/upload/achievement` | `Admin` | Upload achievement banner (`?id=<slug>`) |
 | Media | `POST /api/v1/upload/gallery` | `Admin` | Upload gallery image (`?id=<slug>`) |
 | Media | `POST /api/v1/upload/activity` | `Admin` | Upload activity image (`?id=<slug>`) |
-| Media | `GET /api/v1/media/*` | `Public` | Stream stored S3/MinIO object |
+| Media | `POST /api/v1/upload/request` | `Whitelisted` | Upload attachment image for requests or feedback |
+| Media | `GET /api/v1/media/*` | `Public` | Stream stored S3 object |
 
 ---
 
@@ -207,6 +225,7 @@ type Member = {
   nama_panggilan: string;
   major?: string;
   programId?: string;
+  dateOfBirth?: string | null; // YYYY-MM-DD (not in future); exposed only to self and admins
   instagram: string;
   line: string;
   github: string;
@@ -222,11 +241,11 @@ type Member = {
 ### Endpoints
 - **`GET /api/v1/members`** (`OptionalAuth`):
   - **Query Params:** `search`, `major`, `niche`, `program`, `page`, `limit`.
-  - **Response `200`:** Paginated `{ "data": Member[], "total", "page", "limit", "totalPages" }`. `email` and `role` are omitted unless caller has a valid whitelisted session.
+  - **Response `200`:** Paginated `{ "data": Member[], "total", "page", "limit", "totalPages" }`. `email` and `role` are omitted unless caller has a valid whitelisted session; `dateOfBirth` is omitted unless the item belongs to the caller or caller is an admin.
 - **`GET /api/v1/members/:npm`** (`OptionalAuth`):
   - **Response `200`:** `{ "data": Member }` (PII-filtered by viewer auth) or `404`.
 - **`PUT /api/v1/members/me`** (`Whitelisted`):
-  - **Body:** `MemberUpdateSchema.omit({ role: true })` (`npm` and `role` locked).
+  - **Body:** `MemberUpdateSchema.omit({ role: true })` (`npm` and `role` locked). Omitting `dateOfBirth` preserves the stored value; passing `null` clears it.
   - **Responses:** `200` `{ "data": Member }`, `404`, `409` `{ "error": "Email already in use" }`.
 - **`PUT /api/v1/members/:npm/role`** (`Admin` + `Whitelisted`):
   - **Body:** `{ "role": "user" | "admin" }`
@@ -344,13 +363,16 @@ All upload endpoints accept `multipart/form-data` with a single `file` field (`m
   - Storage key: `members/<uuid>.<ext>`
 - **`POST /api/v1/upload/achievement`** (`Admin`)
   - Optional query `?id=<slug>` (defaults to `banner`).
-  - Storage key: `achievements/<safeId>-<timestamp>.<ext>`
+  - Storage key: `achievements/<safeId>-<uuid>.<ext>`
 - **`POST /api/v1/upload/gallery`** (`Admin`)
   - Optional query `?id=<slug>` (defaults to `gallery`).
   - Storage key: `gallery/<safeId>-<timestamp>.<ext>`
 - **`POST /api/v1/upload/activity`** (`Admin`)
   - Optional query `?id=<slug>` (defaults to `activity`).
   - Storage key: `activities/<safeId>-<timestamp>.<ext>`
+- **`POST /api/v1/upload/request`** (`Whitelisted`)
+  - Uploads an image attachment for content requests or feedback threads/replies.
+  - Storage key: `requests/<callerNpm>-<uuid>.<ext>`
 
 ### Upload Response `200`
 ```json
@@ -368,5 +390,148 @@ All upload endpoints accept `multipart/form-data` with a single `file` field (`m
 
 ### `GET /api/v1/media/*`
 - **Auth:** `Public`
-- **Behavior:** Streams the object from S3/MinIO or Vercel Blob. Rejects path traversal (`..`) or invalid characters with `400` `{ "error": "Invalid media key" }`.
+- **Behavior:** Streams the object from S3 (SeaweedFS / AWS S3 / local fallback). Rejects path traversal (`..`) or invalid characters with `400` `{ "error": "Invalid media key" }`.
 - **Headers:** `Content-Type: <obj.contentType>`, `Cache-Control: public, max-age=31536000, immutable`.
+
+---
+
+## 12. Content Requests
+
+### DTOs
+```ts
+type RequestStatus = 'open' | 'in_progress' | 'resolved' | 'closed';
+type ContentRequestType = 'achievement' | 'gallery' | 'activity' | 'other';
+
+type ContentRequestSummary = {
+  id: number;
+  authorNpm: string;
+  author?: { npm: string; name: string; nama_panggilan: string; foto?: ImageField };
+  contentType: ContentRequestType;
+  title: string;
+  description: string;
+  status: RequestStatus;
+  image?: ImageField | null;
+  messageCount: number;
+  createdAt: number;
+  updatedAt: number;
+};
+
+type ContentRequestMessage = {
+  id: number;
+  requestId: number;
+  authorNpm: string;
+  authorRole: 'user' | 'admin';
+  author?: { npm: string; name: string; nama_panggilan: string; foto?: ImageField };
+  body: string;
+  image?: ImageField | null;
+  createdAt: number;
+  updatedAt: number;
+};
+
+type ContentRequestDetail = ContentRequestSummary & {
+  messages: ContentRequestMessage[];
+};
+```
+
+### Endpoints
+All endpoints require `Whitelisted` auth and return `Cache-Control: private, no-store`.
+- **`GET /api/v1/content-requests`**:
+  - **Query Params:** `contentType`, `status`, `search`, `scope` (`'mine'` forces owner filter even for admins), `page`, `limit`.
+  - **Response `200`:** Paginated `ContentRequestSummary[]`. Non-admins only see their own threads.
+- **`POST /api/v1/content-requests`**:
+  - **Body:** `ContentRequestCreateSchema` (`{ contentType?, title, description, image? }`). Returns `201` `{ "data": ContentRequestDetail }`.
+- **`GET /api/v1/content-requests/:id`**:
+  - **Response `200`:** `{ "data": ContentRequestDetail }` (owner or admin only; `403` otherwise).
+- **`PUT /api/v1/content-requests/:id`**:
+  - **Body:** `ContentRequestUpdateSchema` (`{ contentType?, title?, description?, status?, image? }`). Non-admins may only update their own thread and may only change `status` to `'closed'` (`403` otherwise).
+- **`DELETE /api/v1/content-requests/:id`**:
+  - **Response `200`:** `{ "data": { "id": number } }` (owner or admin).
+- **`POST /api/v1/content-requests/:id/messages`**:
+  - **Body:** `{ body: string, image?: ImageField | null }`. Returns `201` `{ "data": ContentRequestMessage }`. Non-admins receive `400` if thread `status` is `'resolved'` or `'closed'`.
+- **`PUT /api/v1/content-requests/:id/messages/:messageId`**:
+  - **Body:** `{ body?: string, image?: ImageField | null }` (at least one required). Author or admin only.
+- **`DELETE /api/v1/content-requests/:id/messages/:messageId`**:
+  - **Response `200`:** `{ "data": { "id": number } }`. Author or admin only.
+
+---
+
+## 13. Feedback & Help Threads
+
+### DTOs
+```ts
+type FeedbackCategory = 'feedback' | 'help' | 'other';
+
+type FeedbackThreadSummary = {
+  id: number;
+  authorNpm: string;
+  author?: { npm: string; name: string; nama_panggilan: string; foto?: ImageField };
+  category: FeedbackCategory;
+  title: string;
+  description: string;
+  status: RequestStatus;
+  image?: ImageField | null;
+  externalUrl?: string | null;
+  messageCount: number;
+  createdAt: number;
+  updatedAt: number;
+};
+
+type FeedbackMessage = {
+  id: number;
+  threadId: number;
+  authorNpm: string;
+  authorRole: 'user' | 'admin';
+  author?: { npm: string; name: string; nama_panggilan: string; foto?: ImageField };
+  body: string;
+  image?: ImageField | null;
+  createdAt: number;
+  updatedAt: number;
+};
+
+type FeedbackThreadDetail = FeedbackThreadSummary & {
+  messages: FeedbackMessage[];
+};
+```
+
+### Endpoints
+All endpoints require `Whitelisted` auth and return `Cache-Control: private, no-store`.
+- **`GET /api/v1/feedback`**:
+  - **Query Params:** `category`, `status`, `search`, `scope` (`'mine'` forces owner filter), `page`, `limit`.
+  - **Response `200`:** Paginated `FeedbackThreadSummary[]`. Non-admins only see their own threads.
+- **`POST /api/v1/feedback`**:
+  - **Body:** `FeedbackThreadCreateSchema` (`{ category?, title, description, image?, externalUrl? }`). Returns `201` `{ "data": FeedbackThreadDetail }`.
+- **`GET /api/v1/feedback/:id`**:
+  - **Response `200`:** `{ "data": FeedbackThreadDetail }` (owner or admin only; `403` otherwise).
+- **`PUT /api/v1/feedback/:id`**:
+  - **Body:** `FeedbackThreadUpdateSchema`. Non-admins may only update their own thread and may only change `status` to `'closed'` (`403` otherwise).
+- **`DELETE /api/v1/feedback/:id`**:
+  - **Response `200`:** `{ "data": { "id": number } }` (owner or admin).
+- **`POST /api/v1/feedback/:id/messages`**:
+  - **Body:** `{ body: string, image?: ImageField | null }`. Returns `201` `{ "data": FeedbackMessage }`. Non-admins receive `400` if thread `status` is `'resolved'` or `'closed'`.
+- **`PUT /api/v1/feedback/:id/messages/:messageId`**:
+  - **Body:** `{ body?: string, image?: ImageField | null }`. Author or admin only.
+- **`DELETE /api/v1/feedback/:id/messages/:messageId`**:
+  - **Response `200`:** `{ "data": { "id": number } }`. Author or admin only.
+
+---
+
+## 14. Admin Stats
+
+### `GET /api/v1/admin/stats`
+- **Auth:** `Admin`
+- **Headers:** `Cache-Control: private, no-store`
+- **Response `200`:**
+  ```json
+  {
+    "data": {
+      "programs": 4,
+      "courses": 64,
+      "members": 546,
+      "achievements": 12,
+      "galleryItems": 18,
+      "activities": 5,
+      "openContentRequests": 3,
+      "openFeedbackThreads": 2
+    }
+  }
+  ```
