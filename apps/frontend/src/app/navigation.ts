@@ -29,7 +29,7 @@ export const ADMIN_SUB_ROUTES = [
 export const navItems: NavItem[] = [
   {
     to: '/my-profile',
-    label: 'Profil',
+    label: 'Profilku',
     description: 'Lihat & atur kartu profil',
     icon: User,
     end: false,
