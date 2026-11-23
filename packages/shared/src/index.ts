@@ -32,8 +32,11 @@ export const CourseSchema = z.object({
   name: z.string().min(1, 'Course name required'),
   code: z.string().optional(),
   sks: z.number().int().min(1).max(6),
+  category: z.string().optional(),
+  track: z.string().optional(),
   description: z.string().optional(),
   prerequisites: z.array(z.string()).optional(),
+  unlocks: z.array(z.string()).optional(),
   materialUrl: z.string().url().optional().or(z.literal('')),
 });
 

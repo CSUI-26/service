@@ -18,6 +18,8 @@ export function CourseRowCard({ row, onEdit, onDelete }: CourseRowCardProps) {
           <div className="flex flex-wrap items-center gap-2">
             <h3 className="font-medium text-foreground">{row.course.name}</h3>
             {row.course.code ? <Badge variant="secondary">{row.course.code}</Badge> : null}
+            {row.course.category ? <Badge variant="outline">{row.course.category}</Badge> : null}
+            {row.course.track ? <Badge variant="secondary">{row.course.track}</Badge> : null}
           </div>
           <p className="text-xs text-muted-foreground">
             {row.programName} · Semester {row.semester} · {row.course.sks} SKS

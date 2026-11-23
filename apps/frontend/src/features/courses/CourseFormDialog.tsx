@@ -18,7 +18,11 @@ function toFormValues(row: CourseRow | null, programs: ProgramOption[]): CourseF
       name: '',
       code: '',
       sks: 3,
+      category: '',
+      track: '',
       description: '',
+      prerequisitesText: '',
+      unlocksText: '',
     };
   }
   return {
@@ -27,7 +31,11 @@ function toFormValues(row: CourseRow | null, programs: ProgramOption[]): CourseF
     name: row.course.name,
     code: row.course.code ?? '',
     sks: row.course.sks,
+    category: row.course.category ?? '',
+    track: row.course.track ?? '',
     description: row.course.description ?? '',
+    prerequisitesText: (row.course.prerequisites ?? []).join('\n'),
+    unlocksText: (row.course.unlocks ?? []).join('\n'),
   };
 }
 
@@ -131,7 +139,7 @@ export function CourseFormDialog({
           <TextField
             id="course-semester"
             label="Semester"
-            inputMode="numeric"
+            hint="Number (1-8) or Pilihan"
             error={errors.semester?.message}
             {...register('semester')}
           />
@@ -155,10 +163,26 @@ export function CourseFormDialog({
         <TextField
           id="course-code"
           label="Code"
-          hint="Optional, e.g. DDP 1."
+          hint="Optional, e.g. CSGE601020."
           error={errors.code?.message}
           {...register('code')}
         />
+        <div className="grid gap-4 sm:grid-cols-2">
+          <TextField
+            id="course-category"
+            label="Category"
+            hint="Optional, e.g. Wajib Fakultas, Pilihan."
+            error={errors.category?.message}
+            {...register('category')}
+          />
+          <TextField
+            id="course-track"
+            label="Track"
+            hint="Optional elective cluster."
+            error={errors.track?.message}
+            {...register('track')}
+          />
+        </div>
         <TextAreaField
           id="course-description"
           label="Description"
@@ -166,6 +190,24 @@ export function CourseFormDialog({
           error={errors.description?.message}
           {...register('description')}
         />
+        <div className="grid gap-4 sm:grid-cols-2">
+          <TextAreaField
+            id="course-prerequisites"
+            label="Prerequisites"
+            hint="One per line or comma-separated."
+            rows={2}
+            error={errors.prerequisitesText?.message}
+            {...register('prerequisitesText')}
+          />
+          <TextAreaField
+            id="course-unlocks"
+            label="Unlocks"
+            hint="Courses unlocked, one per line."
+            rows={2}
+            error={errors.unlocksText?.message}
+            {...register('unlocksText')}
+          />
+        </div>
       </FieldGroup>
     </FormDialog>
   );
