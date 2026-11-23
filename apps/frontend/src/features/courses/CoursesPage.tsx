@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router';
 import { toast } from 'sonner';
 import { BookOpen, Pencil, Plus, RotateCcw, Trash2 } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -32,6 +33,18 @@ import type { Course, CourseRow, ProgramOption } from '@/features/courses/types'
 import type { Program } from '@/features/programs/types';
 
 const PAGE_SIZE = 20;
+
+function parseCourseList(value: string): string[] {
+  return value
+    .split(/[\n,]+/)
+    .map((item) => item.trim())
+    .filter(Boolean);
+}
+
+function normalizeSemester(value: string): string {
+  const trimmed = value.trim();
+  return trimmed.toLowerCase() === 'pilihan' ? 'Pilihan' : trimmed;
+}
 
 export default function CoursesPage() {
   useDocumentTitle('Courses');
@@ -90,12 +103,17 @@ export default function CoursesPage() {
   );
 
   const submit = async (values: CourseFormValues) => {
+    const semester = normalizeSemester(values.semester);
     const course: Course = {
       ...(editing?.course.id ? { id: editing.course.id } : {}),
       name: values.name,
       code: values.code,
       sks: values.sks,
+      category: values.category,
+      track: values.track,
       description: values.description,
+      prerequisites: parseCourseList(values.prerequisitesText),
+      unlocks: parseCourseList(values.unlocksText),
     };
     const programName = programs.find((item) => item.id === values.programId)?.name ?? values.programId;
     const snapshot = list.data;
@@ -112,7 +130,7 @@ export default function CoursesPage() {
                 ...row,
                 programId: values.programId,
                 programName,
-                semester: values.semester,
+                semester,
                 course: { ...row.course, ...course },
               }
             : row,
@@ -122,7 +140,7 @@ export default function CoursesPage() {
         await coursesApi.update(editingId, {
           ...course,
           programId: values.programId,
-          semester: values.semester,
+          semester,
         });
         toast.success('Course updated');
         list.reload();
@@ -139,7 +157,7 @@ export default function CoursesPage() {
     const optimistic: CourseRow = {
       programId: values.programId,
       programName,
-      semester: values.semester,
+      semester,
       course,
     };
 
@@ -147,7 +165,7 @@ export default function CoursesPage() {
     try {
       await coursesApi.create({
         programId: values.programId,
-        semester: values.semester,
+        semester,
         course,
       });
       toast.success('Course added');
@@ -183,7 +201,7 @@ export default function CoursesPage() {
   const programItems: Record<string, string> = { all: 'All programs' };
   for (const program of programs) programItems[program.id] = program.name;
   const sksItems: Record<string, string> = { all: 'All SKS' };
-  for (const sks of [2, 3, 4, 6]) sksItems[String(sks)] = `${sks} SKS`;
+  for (const sks of [1, 2, 3, 4, 6]) sksItems[String(sks)] = `${sks} SKS`;
 
   const hasFilter = Boolean(search || programFilter || semesterFilter || sksFilter);
 
@@ -240,7 +258,6 @@ export default function CoursesPage() {
         <Input
           placeholder="Semester"
           aria-label="Filter semester"
-          inputMode="numeric"
           value={semesterFilter}
           onChange={(event) => setSemesterFilter(event.target.value)}
         />
@@ -253,7 +270,7 @@ export default function CoursesPage() {
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All SKS</SelectItem>
-            {[2, 3, 4, 6].map((sks) => (
+            {[1, 2, 3, 4, 6].map((sks) => (
               <SelectItem key={sks} value={String(sks)}>
                 {sks} SKS
               </SelectItem>
@@ -317,7 +334,21 @@ export default function CoursesPage() {
                     {row.course.code || '-'}
                   </TableCell>
                   <TableCell className="px-3 font-medium text-foreground">
-                    {row.course.name}
+                    <div>{row.course.name}</div>
+                    {row.course.category || row.course.track ? (
+                      <div className="mt-1 flex flex-wrap gap-1">
+                        {row.course.category ? (
+                          <Badge variant="outline" className="text-[10px] font-normal">
+                            {row.course.category}
+                          </Badge>
+                        ) : null}
+                        {row.course.track ? (
+                          <Badge variant="secondary" className="text-[10px] font-normal">
+                            {row.course.track}
+                          </Badge>
+                        ) : null}
+                      </div>
+                    ) : null}
                   </TableCell>
                   <TableCell className="px-3 text-muted-foreground">
                     {row.programName}

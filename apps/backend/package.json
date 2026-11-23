@@ -14,6 +14,8 @@
     "test:ui": "vitest --ui",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
+    "db:migrate:academic": "tsx src/db/migrate-academic.ts",
+    "db:migrate:academic:prod": "node dist/db/migrate-academic.js",
     "db:studio": "drizzle-kit studio",
     "lint": "tsc --noEmit"
   },

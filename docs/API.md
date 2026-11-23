@@ -192,8 +192,11 @@ type Course = {
   name: string;
   code?: string;
   sks: number;              // Integer 1..6
+  category?: string;        // e.g. "Wajib Fakultas", "Wajib Prodi", "Pilihan"
+  track?: string;           // Elective cluster / discipline track
   description?: string;
   prerequisites?: string[];
+  unlocks?: string[];       // Courses unlocked by this course
   materialUrl?: string;     // Valid URL or ""
 };
 ```

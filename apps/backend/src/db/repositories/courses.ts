@@ -10,8 +10,11 @@ export function mapCourseRow(row: typeof courses.$inferSelect): Course {
     name: row.name,
     code: row.code ?? undefined,
     sks: row.sks,
+    category: row.category ?? undefined,
+    track: row.track ?? undefined,
     description: row.description ?? undefined,
     prerequisites: row.prerequisites ?? undefined,
+    unlocks: row.unlocks ?? undefined,
     materialUrl: row.materialUrl ?? undefined,
   };
 }
@@ -76,8 +79,11 @@ export async function insertCourseWithExecutor(
       name: course.name,
       code: course.code ?? null,
       sks: course.sks,
+      category: course.category ?? null,
+      track: course.track ?? null,
       description: course.description ?? null,
       prerequisites: course.prerequisites ?? null,
+      unlocks: course.unlocks ?? null,
       materialUrl: course.materialUrl ?? null,
       position,
     })
@@ -182,11 +188,14 @@ export async function updateCourse(courseId: number, updates: CourseUpdate): Pro
       set.position = await getNextCoursePosition(targetSemesterId, tx);
     }
     if (updates.name !== undefined) set.name = updates.name;
-    if (updates.code !== undefined) set.code = updates.code ?? null;
+    if (updates.code !== undefined) set.code = updates.code || null;
     if (updates.sks !== undefined) set.sks = updates.sks;
-    if (updates.description !== undefined) set.description = updates.description ?? null;
+    if (updates.category !== undefined) set.category = updates.category || null;
+    if (updates.track !== undefined) set.track = updates.track || null;
+    if (updates.description !== undefined) set.description = updates.description || null;
     if (updates.prerequisites !== undefined) set.prerequisites = updates.prerequisites ?? null;
-    if (updates.materialUrl !== undefined) set.materialUrl = updates.materialUrl ?? null;
+    if (updates.unlocks !== undefined) set.unlocks = updates.unlocks ?? null;
+    if (updates.materialUrl !== undefined) set.materialUrl = updates.materialUrl || null;
 
     if (Object.keys(set).length > 0) {
       await tx.update(courses).set(set).where(eq(courses.id, courseId));

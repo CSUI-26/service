@@ -19,7 +19,7 @@ const ACHIEVEMENTS_FILE = join(DATA_DIR, 'achievements.json');
 const GALLERY_FILE = join(DATA_DIR, 'gallery.json');
 const ACTIVITIES_FILE = join(DATA_DIR, 'activities.json');
 
-interface Course { name: string; code?: string; sks: number; description?: string; prerequisites?: string[]; materialUrl?: string; }
+interface Course { name: string; code?: string; sks: number; category?: string; track?: string; description?: string; prerequisites?: string[]; unlocks?: string[]; materialUrl?: string; }
 interface Semester { semester: number | string; courses: Course[]; }
 interface Program { id: string; name: string; slug: string; description: string; careers: string[]; courseMapUrl: string; driveUrl: string; semesters: Semester[]; }
 interface MemberFoto { url: string; config?: ImageConfig; }
@@ -153,8 +153,11 @@ async function seedPrograms() {
           name: course.name,
           code: course.code || null,
           sks: course.sks,
+          category: course.category || null,
+          track: course.track || null,
           description: course.description || null,
           prerequisites: course.prerequisites || null,
+          unlocks: course.unlocks || null,
           materialUrl: course.materialUrl || null,
           position: courseIdx,
         });

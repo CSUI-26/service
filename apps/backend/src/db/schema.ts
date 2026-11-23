@@ -33,8 +33,11 @@ export const courses = pgTable('courses', {
   name: text('name').notNull(),
   code: text('code'),
   sks: integer('sks').notNull(),
+  category: text('category'),
+  track: text('track'),
   description: text('description'),
   prerequisites: jsonb('prerequisites').$type<string[] | null>(),
+  unlocks: jsonb('unlocks').$type<string[] | null>(),
   materialUrl: text('material_url'),
   position: integer('position').notNull().default(0),
 }, (table) => ({
